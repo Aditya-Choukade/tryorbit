@@ -1,6 +1,73 @@
+"use client";
+
 import Link from "next/link";
+import { useEffect, useState } from "react";
+
+// Type definition for a problem from the API
+interface Problem {
+  id: string;
+  problem: string;
+  industry: string;
+  summary: string;
+  tags: string[];
+  source: string;
+  subreddit: string;
+  upvotes: number;
+  comments: number;
+  url: string;
+  orbitScore: number;    // 0–100 from backend scoreService
+  scoreLabel: string;   // "High Opportunity" | "Medium" | "Low"
+}
+
+// Map scoreLabel to a confidence display string
+function confidenceLabel(scoreLabel: string, orbitScore: number): string {
+  if (scoreLabel === 'High Opportunity') return `Very High (${orbitScore}%)`;
+  if (scoreLabel === 'Medium') return `Moderate (${orbitScore}%)`;
+  return `Low (${orbitScore}%)`;
+}
 
 export default function Page() {
+  const [problems, setProblems] = useState<Problem[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    async function fetchProblems() {
+      try {
+        // Call our own Next.js proxy instead of the backend directly.
+        // This avoids CORS errors and browser network issues entirely.
+        const res = await fetch("/api/problems", { cache: "no-store" });
+        const json = await res.json();
+
+        if (json.success && json.data.length > 0) {
+          setProblems(json.data);
+        } else {
+          setProblems([]);
+        }
+      } catch (err) {
+        console.error("Failed to fetch problems:", err);
+        setError("Failed to load problems. Make sure the backend is running.");
+      } finally {
+        setLoading(false);
+      }
+    }
+    fetchProblems();
+  }, []);
+
+  // Compute category counts from real data
+  const categoryCounts: Record<string, number> = {};
+  problems.forEach((p) => {
+    categoryCounts[p.industry] = (categoryCounts[p.industry] || 0) + 1;
+  });
+
+  // The first problem becomes the hero card
+  const heroProblem = problems[0] || null;
+  const heroScore = heroProblem ? heroProblem.orbitScore : 0;
+  const heroLabel = heroProblem ? heroProblem.scoreLabel : '';
+
+  // The rest go into the feed
+  const feedProblems = problems.slice(1);
+
   return (
     <div className="text-on-surface flex flex-col">
       {/* eslint-disable @next/next/no-img-element */}
@@ -40,24 +107,14 @@ export default function Page() {
 <div className="flex flex-col gap-1">
 <button className="flex items-center justify-between w-full px-3 py-2 rounded-lg bg-surface-container text-xs font-bold">
 <span>All Opportunities</span>
-<span className="bg-white px-1.5 py-0.5 rounded text-[10px]">42</span>
+<span className="bg-white px-1.5 py-0.5 rounded text-[10px]">{problems.length}</span>
 </button>
-<button className="flex items-center justify-between w-full px-3 py-2 rounded-lg hover:bg-surface-container text-xs font-medium text-on-surface-variant transition-colors">
-<span>Fintech</span>
-<span className="text-[10px]">12</span>
+{Object.entries(categoryCounts).map(([industry, count]) => (
+<button key={industry} className="flex items-center justify-between w-full px-3 py-2 rounded-lg hover:bg-surface-container text-xs font-medium text-on-surface-variant transition-colors">
+<span>{industry}</span>
+<span className="text-[10px]">{count}</span>
 </button>
-<button className="flex items-center justify-between w-full px-3 py-2 rounded-lg hover:bg-surface-container text-xs font-medium text-on-surface-variant transition-colors">
-<span>SaaS</span>
-<span className="text-[10px]">8</span>
-</button>
-<button className="flex items-center justify-between w-full px-3 py-2 rounded-lg hover:bg-surface-container text-xs font-medium text-on-surface-variant transition-colors">
-<span>Health</span>
-<span className="text-[10px]">15</span>
-</button>
-<button className="flex items-center justify-between w-full px-3 py-2 rounded-lg hover:bg-surface-container text-xs font-medium text-on-surface-variant transition-colors">
-<span>Logistics</span>
-<span className="text-[10px]">7</span>
-</button>
+))}
 </div>
 </div>
 <div className="pt-8 mt-auto border-t border-outline">
@@ -70,6 +127,36 @@ export default function Page() {
 </div>
 </aside>
 <main className="flex-1 overflow-y-auto custom-scrollbar bg-surface px-8 py-8">
+
+{/* ── Loading State ── */}
+{loading && (
+<div className="flex flex-col items-center justify-center py-32 gap-4">
+  <div className="w-10 h-10 border-3 border-primary/20 border-t-primary rounded-full animate-spin"></div>
+  <p className="text-sm text-on-surface-variant font-medium animate-pulse">Scanning Reddit for market signals...</p>
+  <p className="text-[10px] text-secondary uppercase tracking-widest">This may take 30–60 seconds</p>
+</div>
+)}
+
+{/* ── Error State ── */}
+{error && !loading && (
+<div className="flex flex-col items-center justify-center py-32 gap-4">
+  <span className="material-symbols-outlined text-4xl text-red-400">error</span>
+  <p className="text-sm text-on-surface-variant font-medium">{error}</p>
+  <button onClick={() => window.location.reload()} className="mt-4 px-6 py-2 bg-primary text-white rounded-lg text-xs font-bold uppercase tracking-widest hover:scale-105 transition-all">Retry</button>
+</div>
+)}
+
+{/* ── Empty State ── */}
+{!loading && !error && problems.length === 0 && (
+<div className="flex flex-col items-center justify-center py-32 gap-4">
+  <span className="material-symbols-outlined text-4xl text-secondary">inbox</span>
+  <p className="text-sm text-on-surface-variant font-medium">No problems found</p>
+  <p className="text-xs text-secondary">Try a different subreddit or check back later.</p>
+</div>
+)}
+
+{/* ── Hero Card (Best Opportunity) ── */}
+{!loading && !error && heroProblem && (
 <section className="mb-10">
 <div className="bg-surface-bright rounded-2xl p-8 magazine-shadow border border-primary/10 relative overflow-hidden flex items-center gap-10">
 <div className="flex-1 relative z-10">
@@ -77,46 +164,54 @@ export default function Page() {
 <span className="material-symbols-outlined text-[10px]" data-weight="fill">verified</span>
 <span className="text-[9px] font-bold tracking-[0.2em] uppercase">Best Opportunity Today</span>
 </div>
-<h2 className="text-2xl font-black tracking-tight mb-2">Cross-border payment friction for Tier-2 suppliers</h2>
-<p className="text-sm text-on-surface-variant font-light mb-6 italic font-serif">"Affects merchant cash flow in SE Asia and Latin America."</p>
+<h2 className="text-2xl font-black tracking-tight mb-2">{heroProblem.problem}</h2>
+<p className="text-sm text-on-surface-variant font-light mb-6 italic font-serif">&quot;{heroProblem.summary}&quot;</p>
 <div className="flex gap-10 items-center">
 <div>
-<span className="text-[8px] font-bold tracking-[0.2em] uppercase text-secondary block">Action</span>
-<p className="text-[11px] font-bold text-on-surface">Multi-currency API</p>
+<span className="text-[8px] font-bold tracking-[0.2em] uppercase text-secondary block">Industry</span>
+<p className="text-[11px] font-bold text-on-surface">{heroProblem.industry}</p>
 </div>
 <div>
-<span className="text-[8px] font-bold tracking-[0.2em] uppercase text-secondary block">Timeframe</span>
-<p className="text-[11px] font-bold text-on-surface">4-6 weeks</p>
+<span className="text-[8px] font-bold tracking-[0.2em] uppercase text-secondary block">Source</span>
+<p className="text-[11px] font-bold text-on-surface">r/{heroProblem.subreddit}</p>
 </div>
 <div>
-<span className="text-[8px] font-bold tracking-[0.2em] uppercase text-secondary block">Monetization</span>
-<p className="text-[11px] font-bold text-on-surface">0.5% txn fee</p>
+<span className="text-[8px] font-bold tracking-[0.2em] uppercase text-secondary block">Upvotes</span>
+<p className="text-[11px] font-bold text-on-surface">{heroProblem.upvotes}</p>
 </div>
 <div className="flex gap-2 ml-auto">
-<button className="bg-[#FF7F6A] text-white px-5 py-2.5 rounded-lg font-bold text-[10px] tracking-widest uppercase hover:scale-105 transition-all">Build This</button>
-<Link href="/problem/1" className="border border-outline px-5 py-2.5 rounded-lg font-bold text-[10px] tracking-widest uppercase hover:bg-surface transition-all inline-flex items-center">Details</Link>
+<a href={heroProblem.url} target="_blank" rel="noopener noreferrer" className="bg-[#FF7F6A] text-white px-5 py-2.5 rounded-lg font-bold text-[10px] tracking-widest uppercase hover:scale-105 transition-all">View on Reddit</a>
+<Link href={`/problem/${heroProblem.id}`} className="border border-outline px-5 py-2.5 rounded-lg font-bold text-[10px] tracking-widest uppercase hover:bg-surface transition-all inline-flex items-center">Details</Link>
 </div>
 </div>
+{/* Tags */}
+{heroProblem.tags.length > 0 && (
+<div className="flex gap-2 mt-4">
+  {heroProblem.tags.map((tag, i) => (
+    <span key={i} className="text-[9px] font-bold bg-primary/5 text-primary px-2 py-0.5 rounded-full uppercase tracking-widest">#{tag}</span>
+  ))}
+</div>
+)}
 </div>
 <div className="w-40 h-40 shrink-0 bg-surface-container-low rounded-xl p-4 flex flex-col items-center justify-center relative">
 <div className="orbit-ring w-24 h-24 rounded-full flex items-center justify-center p-2">
 <div className="w-full h-full bg-surface-bright rounded-full flex flex-col items-center justify-center">
-<span className="text-xl font-black">82</span>
-<span className="text-[7px] font-bold tracking-widest text-secondary uppercase">Score</span>
+<span className="text-xl font-black">{heroScore}</span>
+<span className="text-[7px] font-bold tracking-widest uppercase" style={{color: heroLabel === 'High Opportunity' ? '#FF7F6A' : '#94a3b8'}}>{heroLabel === 'High Opportunity' ? 'High' : heroLabel}</span>
 </div>
-</div>
-<div className="absolute bottom-2 right-2 flex flex-col items-end">
-<span className="text-[8px] font-bold text-primary">+12%</span>
-<span className="text-[7px] text-secondary uppercase tracking-widest">Trend</span>
 </div>
 </div>
 </div>
 </section>
+)}
+
+{/* ── Discovery Feed ── */}
+{!loading && !error && feedProblems.length > 0 && (
 <section>
 <div className="flex items-center justify-between mb-6">
 <div>
 <h3 className="text-lg font-black tracking-tight">Discovery Feed</h3>
-<p className="text-xs text-on-surface-variant">Scanning 1,429 signals for market inefficiencies.</p>
+<p className="text-xs text-on-surface-variant">Showing {problems.length} AI-processed signals from Reddit.</p>
 </div>
 <div className="flex items-center gap-2">
 <span className="text-[10px] font-bold text-secondary uppercase mr-2">Sort by</span>
@@ -128,141 +223,43 @@ export default function Page() {
 </div>
 </div>
 <div className="space-y-3">
-<div className="bg-white rounded-xl border border-outline hover:border-primary/30 p-4 transition-all group flex items-center gap-6">
-<div className="w-12 h-12 rounded-lg bg-surface-container flex flex-col items-center justify-center shrink-0 border border-outline-variant">
-<span className="text-sm font-black text-on-surface">74</span>
-<span className="text-[7px] font-bold text-secondary uppercase">Orbit</span>
-</div>
-<div className="flex-1">
-<div className="flex items-center gap-3 mb-1">
-<span className="text-[9px] font-bold tracking-[0.2em] uppercase text-secondary">Fintech</span>
-<span className="w-1 h-1 rounded-full bg-outline-variant"></span>
-<span className="text-[9px] font-medium text-on-surface-variant">High Confidence (89%)</span>
-</div>
-<h4 className="text-sm font-bold text-on-surface leading-tight">Post-purchase tax reclaim for expats</h4>
-</div>
-<div className="hidden xl:block max-w-sm">
-<p className="text-[11px] text-on-surface-variant line-clamp-1 italic">"High friction manual process for claiming VAT refunds at EU borders."</p>
-</div>
-<div className="flex items-center gap-4 ml-auto">
-<button className="material-symbols-outlined text-secondary text-lg hover:text-primary transition-colors">bookmark</button>
-<button className="text-[10px] font-bold uppercase text-primary border-b border-primary/20 hover:border-primary transition-all">Build</button>
-<Link href="/problem/1" className="text-[10px] font-bold uppercase text-on-surface-variant hover:text-on-surface transition-all">Details</Link>
-</div>
-</div>
-<div className="bg-white rounded-xl border border-outline hover:border-primary/30 p-4 transition-all group flex items-center gap-6">
-<div className="w-12 h-12 rounded-lg bg-surface-container flex flex-col items-center justify-center shrink-0 border border-outline-variant">
-<span className="text-sm font-black text-on-surface">68</span>
-<span className="text-[7px] font-bold text-secondary uppercase">Orbit</span>
-</div>
-<div className="flex-1">
-<div className="flex items-center gap-3 mb-1">
-<span className="text-[9px] font-bold tracking-[0.2em] uppercase text-secondary">Health</span>
-<span className="w-1 h-1 rounded-full bg-outline-variant"></span>
-<span className="text-[9px] font-medium text-on-surface-variant">Moderate (72%)</span>
-</div>
-<h4 className="text-sm font-bold text-on-surface leading-tight">Patient intake automation for dental clinics</h4>
-</div>
-<div className="hidden xl:block max-w-sm">
-<p className="text-[11px] text-on-surface-variant line-clamp-1 italic">"Administrative burnout caused by legacy form software in US practices."</p>
-</div>
-<div className="flex items-center gap-4 ml-auto">
-<button className="material-symbols-outlined text-secondary text-lg hover:text-primary transition-colors">bookmark</button>
-<button className="text-[10px] font-bold uppercase text-primary border-b border-primary/20 hover:border-primary transition-all">Build</button>
-<Link href="/problem/1" className="text-[10px] font-bold uppercase text-on-surface-variant hover:text-on-surface transition-all">Details</Link>
-</div>
-</div>
-<div className="bg-on-surface rounded-xl p-4 overflow-hidden relative flex items-center gap-6 text-white group">
-<img alt="Background" className="absolute inset-0 w-full h-full object-cover opacity-10" src="https://lh3.googleusercontent.com/aida-public/AB6AXuDQb0SF-Q1lt8J4JizKxSH0dhdxB7aFVnHJuzuFk09AL2vJb-bPHOznoUFBMbFQiS3CDDoWPV0F1JUOVh70wYKzt94-9Htn05ijkO4IJyxK18t1eRx5Ha_4Qsvv-njSKL-2IIYQb5oumJO_07VBfsLsiGaponWjibmjQl7WMBtavJ3GFgY-tMMVVbcD24mEw8ADv7WiEb5CZKpeI4GB3g9j6oxLlV1NOGzsGFIGW8Bt0BrZbpKr_Jl7nYlufDIloYxv1KbnyoYqiJAR"/>
-<div className="w-12 h-12 rounded-lg bg-white/10 backdrop-blur-sm flex flex-col items-center justify-center shrink-0 border border-white/20 relative z-10">
-<span className="text-sm font-black text-primary">91</span>
-<span className="text-[7px] font-bold text-white/60 uppercase">High</span>
-</div>
-<div className="flex-1 relative z-10">
-<div className="flex items-center gap-3 mb-1">
-<span className="text-[9px] font-bold tracking-[0.2em] uppercase text-primary">Market Alert</span>
-<span className="w-1 h-1 rounded-full bg-white/20"></span>
-</div>
-<h4 className="text-sm font-bold text-white leading-tight">Supply chain transparency for boutique roasteries</h4>
-</div>
-<div className="relative z-10 ml-auto">
-<button className="text-[10px] font-bold uppercase text-primary hover:text-white transition-all bg-white/5 border border-primary/40 px-4 py-2 rounded-lg">Explore Gap</button>
-</div>
-</div>
-<div className="bg-white rounded-xl border border-outline hover:border-primary/30 p-4 transition-all group flex items-center gap-6">
-<div className="w-12 h-12 rounded-lg bg-surface-container flex flex-col items-center justify-center shrink-0 border border-outline-variant">
-<span className="text-sm font-black text-on-surface">79</span>
-<span className="text-[7px] font-bold text-secondary uppercase">Orbit</span>
-</div>
-<div className="flex-1">
-<div className="flex items-center gap-3 mb-1">
-<span className="text-[9px] font-bold tracking-[0.2em] uppercase text-secondary">SaaS</span>
-<span className="w-1 h-1 rounded-full bg-outline-variant"></span>
-<span className="text-[9px] font-medium text-on-surface-variant">Rising Trend (+8%)</span>
-</div>
-<h4 className="text-sm font-bold text-on-surface leading-tight">AI legal-doc summarizer for SMB leases</h4>
-</div>
-<div className="hidden xl:block max-w-sm">
-<p className="text-[11px] text-on-surface-variant line-clamp-1 italic">"Small business owners lack clarity on commercial lease terms."</p>
-</div>
-<div className="flex items-center gap-4 ml-auto">
-<button className="material-symbols-outlined text-secondary text-lg hover:text-primary transition-colors">bookmark</button>
-<button className="text-[10px] font-bold uppercase text-primary border-b border-primary/20 hover:border-primary transition-all">Build</button>
-<Link href="/problem/1" className="text-[10px] font-bold uppercase text-on-surface-variant hover:text-on-surface transition-all">Details</Link>
-</div>
-</div>
-<div className="bg-white rounded-xl border border-outline hover:border-primary/30 p-4 transition-all group flex items-center gap-6">
-<div className="w-12 h-12 rounded-lg bg-surface-container flex flex-col items-center justify-center shrink-0 border border-outline-variant">
-<span className="text-sm font-black text-on-surface">85</span>
-<span className="text-[7px] font-bold text-secondary uppercase">Orbit</span>
-</div>
-<div className="flex-1">
-<div className="flex items-center gap-3 mb-1">
-<span className="text-[9px] font-bold tracking-[0.2em] uppercase text-secondary">E-commerce</span>
-<span className="w-1 h-1 rounded-full bg-outline-variant"></span>
-<span className="text-[9px] font-medium text-on-surface-variant">Critical Issue (40% fail)</span>
-</div>
-<h4 className="text-sm font-bold text-on-surface leading-tight">Localized checkout components for West Africa</h4>
-</div>
-<div className="hidden xl:block max-w-sm">
-<p className="text-[11px] text-on-surface-variant line-clamp-1 italic">"Mobile money integration gaps in Nigeria and Ghana stores."</p>
-</div>
-<div className="flex items-center gap-4 ml-auto">
-<button className="material-symbols-outlined text-secondary text-lg hover:text-primary transition-colors">bookmark</button>
-<button className="text-[10px] font-bold uppercase text-primary border-b border-primary/20 hover:border-primary transition-all">Build</button>
-<Link href="/problem/1" className="text-[10px] font-bold uppercase text-on-surface-variant hover:text-on-surface transition-all">Details</Link>
-</div>
-</div>
-<div className="bg-white rounded-xl border border-outline hover:border-primary/30 p-4 transition-all group flex items-center gap-6">
-<div className="w-12 h-12 rounded-lg bg-surface-container flex flex-col items-center justify-center shrink-0 border border-outline-variant">
-<span className="text-sm font-black text-on-surface">81</span>
-<span className="text-[7px] font-bold text-secondary uppercase">Orbit</span>
-</div>
-<div className="flex-1">
-<div className="flex items-center gap-3 mb-1">
-<span className="text-[9px] font-bold tracking-[0.2em] uppercase text-secondary">Logistics</span>
-<span className="w-1 h-1 rounded-full bg-outline-variant"></span>
-<span className="text-[9px] font-medium text-on-surface-variant">Stable Market</span>
-</div>
-<h4 className="text-sm font-bold text-on-surface leading-tight">Last-mile routing for micro-warehouses</h4>
-</div>
-<div className="hidden xl:block max-w-sm">
-<p className="text-[11px] text-on-surface-variant line-clamp-1 italic">"Urban congestion requires dynamic routing for specialized couriers."</p>
-</div>
-<div className="flex items-center gap-4 ml-auto">
-<button className="material-symbols-outlined text-secondary text-lg hover:text-primary transition-colors">bookmark</button>
-<button className="text-[10px] font-bold uppercase text-primary border-b border-primary/20 hover:border-primary transition-all">Build</button>
-<Link href="/problem/1" className="text-[10px] font-bold uppercase text-on-surface-variant hover:text-on-surface transition-all">Details</Link>
-</div>
-</div>
-</div>
-<div className="mt-8 flex justify-center">
-<button className="flex items-center gap-2 px-6 py-3 border border-outline rounded-full text-xs font-bold text-secondary uppercase tracking-[0.2em] hover:bg-white transition-all">
-                    Load More Signals
-                    <span className="material-symbols-outlined text-sm">keyboard_arrow_down</span>
-</button>
+{feedProblems.map((problem, index) => {
+  return (
+    <div key={index} className="bg-white rounded-xl border border-outline hover:border-primary/30 p-4 transition-all group flex items-center gap-6">
+      <div className="w-12 h-12 rounded-lg bg-surface-container flex flex-col items-center justify-center shrink-0 border border-outline-variant">
+                  <span className="text-sm font-black text-on-surface">{problem.orbitScore}</span>
+        <span className="text-[7px] font-bold text-secondary uppercase">{problem.scoreLabel === 'High Opportunity' ? 'High' : problem.scoreLabel === 'Medium' ? 'Med' : 'Low'}</span>
+      </div>
+      <div className="flex-1">
+        <div className="flex items-center gap-3 mb-1">
+                    <span className="text-[9px] font-bold tracking-[0.2em] uppercase text-secondary">{problem.industry}</span>
+          <span className="w-1 h-1 rounded-full bg-outline-variant"></span>
+          <span className="text-[9px] font-medium text-on-surface-variant">{confidenceLabel(problem.scoreLabel, problem.orbitScore)}</span>
+        </div>
+        <h4 className="text-sm font-bold text-on-surface leading-tight">{problem.problem}</h4>
+        {problem.tags.length > 0 && (
+          <div className="flex gap-1.5 mt-1.5">
+            {problem.tags.slice(0, 3).map((tag, i) => (
+              <span key={i} className="text-[8px] font-medium bg-surface-container text-secondary px-1.5 py-0.5 rounded">#{tag}</span>
+            ))}
+          </div>
+        )}
+      </div>
+      <div className="hidden xl:block max-w-sm">
+        <p className="text-[11px] text-on-surface-variant line-clamp-1 italic">&quot;{problem.summary}&quot;</p>
+      </div>
+      <div className="flex items-center gap-4 ml-auto">
+        <button className="material-symbols-outlined text-secondary text-lg hover:text-primary transition-colors">bookmark</button>
+        <a href={problem.url} target="_blank" rel="noopener noreferrer" className="text-[10px] font-bold uppercase text-primary border-b border-primary/20 hover:border-primary transition-all">Source</a>
+        <Link href={`/problem/${problem.id}`} className="text-[10px] font-bold uppercase text-on-surface-variant hover:text-on-surface transition-all">Details</Link>
+      </div>
+    </div>
+  );
+})}
 </div>
 </section>
+)}
+
 </main>
 </div>
     </div>
