@@ -4,163 +4,225 @@ const cors = require('cors');
 const { fetchRedditPosts, preparePostText } = require('./redditService');
 const { processWithAI, sleep } = require('./aiService');
 const { calculateOrbitScore } = require('./scoreService');
+const { getProblems, getProblemById, insertProblems, healthCheck } = require('./supabaseService');
 
 const app = express();
 const PORT = process.env.PORT || 8000;
 
-// ── In-memory store for processed problems ──────────────────────────────────
-// Keyed by problem ID so detail lookups are O(1)
-const problemsStore = new Map();
-let problemCounter = 0; // Simple incrementing ID
-
-// Highly curated subreddits where professionals report pain points
+// Curated subreddits with high complaint density
 const DEFAULT_SUBREDDITS = ['startups', 'smallbusiness', 'SaaS', 'webdev', 'freelance'];
 
-// Middleware
+// Track whether a sync is currently running to prevent overlap
+let isSyncing = false;
+
 app.use(cors());
 app.use(express.json());
 
-// ─────────────────────────────────────────────
-// Route 1: Raw Reddit Posts
-// GET /api/reddit?subreddit=startups
-// ─────────────────────────────────────────────
-app.get('/api/reddit', async (req, res) => {
-    try {
-        const subreddit = req.query.subreddit || 'startups';
-        console.log(`[API] GET /api/reddit → r/${subreddit}`);
-        const posts = await fetchRedditPosts([subreddit], 20);
-        res.status(200).json({ success: true, count: posts.length, subreddit, data: posts });
-    } catch (error) {
-        res.status(500).json({ success: false, message: 'Failed to retrieve Reddit data.', error: error.message });
-    }
-});
+// ─────────────────────────────────────────────────────────────
+// CORE: Reddit → AI → Score → Supabase pipeline
+// ─────────────────────────────────────────────────────────────
 
-// ─────────────────────────────────────────────
-// Route 2: AI-Processed Problem Feed
-// GET /api/problems
-// GET /api/problems?subreddits=startups,SaaS&limit=5
-// ─────────────────────────────────────────────
+/**
+ * Full sync pipeline: fetches Reddit posts, processes with AI,
+ * scores them, and inserts new ones into Supabase.
+ *
+ * @param {string[]} subreddits
+ * @param {number}   limit
+ * @returns {Promise<{fetched, processed, inserted}>}
+ */
+async function syncRedditToDB(subreddits = DEFAULT_SUBREDDITS, limit = 5) {
+    console.log(`\n${'═'.repeat(60)}`);
+    console.log(`[Sync] Starting Reddit → AI → Supabase pipeline`);
+    console.log(`  Subreddits: ${subreddits.join(', ')} | Limit: ${limit}`);
+    console.log(`${'═'.repeat(60)}\n`);
+
+    // Step 1: Fetch raw posts
+    const rawPosts = await fetchRedditPosts(subreddits, limit);
+    console.log(`[Sync] Fetched ${rawPosts.length} posts after filtering\n`);
+
+    if (rawPosts.length === 0) {
+        return { fetched: 0, processed: 0, inserted: 0 };
+    }
+
+    // Step 2: AI process + score each post
+    const processed = [];
+
+    for (let i = 0; i < rawPosts.length; i++) {
+        const post = rawPosts[i];
+        const inputText = preparePostText(post, 1000);
+
+        console.log(`[Sync] Post ${i + 1}/${rawPosts.length}: "${post.title.substring(0, 65)}..." (r/${post.subreddit}, ↑${post.upvotes})`);
+
+        const aiResult = await processWithAI(inputText, i + 1);
+
+        if (aiResult) {
+            const { orbitScore, scoreLabel } = calculateOrbitScore(post, aiResult);
+
+            processed.push({
+                problem:     aiResult.problem,
+                industry:    aiResult.industry,
+                summary:     aiResult.summary,
+                tags:        aiResult.tags,
+                complaints:  aiResult.complaints,
+                rootCause:   aiResult.rootCause,
+                opportunity: aiResult.opportunity,
+                source:      'Reddit',
+                subreddit:   post.subreddit,
+                upvotes:     post.upvotes,
+                comments:    post.comments,
+                url:         post.url,
+                orbitScore,
+                scoreLabel,
+            });
+            console.log(`  ✅ "${aiResult.problem}" → Score: ${orbitScore} (${scoreLabel})\n`);
+        } else {
+            console.log(`  ⏭️  Skipped (AI returned null)\n`);
+        }
+
+        if (i < rawPosts.length - 1) await sleep(1000);
+    }
+
+    // Step 3: Batch insert into Supabase (duplicates skipped automatically)
+    const inserted = await insertProblems(processed);
+
+    console.log(`${'─'.repeat(60)}`);
+    console.log(`[Sync] Done: ${rawPosts.length} fetched → ${processed.length} processed → ${inserted} inserted to DB`);
+    console.log(`${'─'.repeat(60)}\n`);
+
+    return { fetched: rawPosts.length, processed: processed.length, inserted };
+}
+
+// ─────────────────────────────────────────────────────────────
+// Route 1: GET /api/problems  — fetch from DB (FAST, no AI)
+// ─────────────────────────────────────────────────────────────
 app.get('/api/problems', async (req, res) => {
     try {
-        const subreddits = req.query.subreddits
-            ? req.query.subreddits.split(',').map(s => s.trim()).filter(Boolean)
-            : DEFAULT_SUBREDDITS;
+        const limit = Math.min(parseInt(req.query.limit) || 20, 50);
+        console.log(`[API] GET /api/problems (limit: ${limit})`);
 
-        // Cap at 8 to prevent frontend request timeouts (AI processing takes time)
-        const limit = Math.min(parseInt(req.query.limit) || 5, 8);
+        const problems = await getProblems(limit);
 
-        console.log(`\n${'━'.repeat(60)}`);
-        console.log(`[API] GET /api/problems | Subreddits: ${subreddits.join(', ')} | Limit: ${limit}`);
-        console.log(`${'━'.repeat(60)}\n`);
-
-        // Step 1: Fetch from multiple subreddits
-        const rawPosts = await fetchRedditPosts(subreddits, limit);
-
-        if (rawPosts.length === 0) {
-            return res.status(200).json({ success: true, count: 0, subreddits, data: [] });
-        }
-
-        console.log(`[API] Sending ${rawPosts.length} posts to AI...\n`);
-
-        // Step 2: Process each post through AI sequentially
-        const problems = [];
-
-        for (let i = 0; i < rawPosts.length; i++) {
-            const post = rawPosts[i];
-            const inputText = preparePostText(post, 1000);
-
-            console.log(`[API] Post ${i + 1}/${rawPosts.length}: "${post.title.substring(0, 70)}..." (r/${post.subreddit}, ↑${post.upvotes})`);
-
-            const aiResult = await processWithAI(inputText, i + 1);
-
-            if (aiResult) {
-                const { orbitScore, scoreLabel } = calculateOrbitScore(post, aiResult);
-
-                // Generate a unique, stable ID for this problem
-                problemCounter += 1;
-                const id = `problem_${problemCounter}`;
-
-                const problem = {
-                    id,
-                    problem:     aiResult.problem,
-                    industry:    aiResult.industry,
-                    summary:     aiResult.summary,
-                    tags:        aiResult.tags,
-                    complaints:  aiResult.complaints,
-                    rootCause:   aiResult.rootCause,
-                    opportunity: aiResult.opportunity,
-                    source:      'Reddit',
-                    subreddit:   post.subreddit,
-                    upvotes:     post.upvotes,
-                    comments:    post.comments,
-                    url:         post.url,
-                    orbitScore,
-                    scoreLabel,
-                };
-
-                // Store for detail lookup
-                problemsStore.set(id, problem);
-                problems.push(problem);
-
-                console.log(`  ✅ [${id}] "${aiResult.problem}" [${aiResult.industry}] → Score: ${orbitScore} (${scoreLabel})\n`);
-            } else {
-                console.log(`  ⏭️  Skipped\n`);
+        if (problems.length === 0) {
+            // DB is empty — auto-trigger a sync in the background
+            console.log('[API] DB empty — triggering background sync...');
+            if (!isSyncing) {
+                isSyncing = true;
+                syncRedditToDB().finally(() => { isSyncing = false; });
             }
 
-            // Cool down between requests
-            if (i < rawPosts.length - 1) {
-                await sleep(1000);
-            }
+            return res.status(200).json({
+                success: true,
+                count: 0,
+                syncing: true,
+                message: 'Database is empty. Background sync started — check back in ~1 minute.',
+                data: [],
+            });
         }
 
-        console.log(`${'─'.repeat(60)}`);
-        console.log(`[API] DONE: ${problems.length} problems extracted. Store size: ${problemsStore.size}`);
-        console.log(`${'─'.repeat(60)}\n`);
-
-        res.status(200).json({ success: true, count: problems.length, subreddits, data: problems });
-
+        res.status(200).json({ success: true, count: problems.length, data: problems });
     } catch (error) {
-        console.error('[API] Fatal error in /api/problems:', error.message);
-        res.status(500).json({ success: false, message: 'Failed to process Reddit data with AI.', error: error.message });
+        console.error('[API] GET /api/problems error:', error.message);
+        res.status(500).json({ success: false, message: 'Failed to fetch problems from database.', error: error.message });
     }
 });
 
-// ─────────────────────────────────────────────
-// Route 3: Problem Detail by ID (NEW)
-// GET /api/problems/:id
-// ─────────────────────────────────────────────
-app.get('/api/problems/:id', (req, res) => {
+// ─────────────────────────────────────────────────────────────
+// Route 2: GET /api/problems/:id  — fetch single from DB
+// ─────────────────────────────────────────────────────────────
+app.get('/api/problems/:id', async (req, res) => {
     const { id } = req.params;
     console.log(`[API] GET /api/problems/${id}`);
 
-    const problem = problemsStore.get(id);
+    try {
+        const problem = await getProblemById(id);
 
-    if (!problem) {
-        return res.status(404).json({
-            success: false,
-            message: `Problem "${id}" not found. The server may have restarted — visit /dashboard to refresh the feed.`,
-        });
+        if (!problem) {
+            return res.status(404).json({
+                success: false,
+                message: `Problem "${id}" not found in database.`,
+            });
+        }
+
+        res.status(200).json({ success: true, data: problem });
+    } catch (error) {
+        console.error('[API] GET /api/problems/:id error:', error.message);
+        res.status(500).json({ success: false, message: 'Failed to fetch problem.', error: error.message });
+    }
+});
+
+// ─────────────────────────────────────────────────────────────
+// Route 3: POST /api/sync  — trigger Reddit → AI → DB pipeline
+// ─────────────────────────────────────────────────────────────
+app.post('/api/sync', async (req, res) => {
+    if (isSyncing) {
+        return res.status(409).json({ success: false, message: 'Sync already in progress. Please wait.' });
     }
 
-    res.status(200).json({ success: true, data: problem });
+    const subreddits = req.body.subreddits || DEFAULT_SUBREDDITS;
+    const limit      = Math.min(req.body.limit || 5, 8);
+
+    // Respond immediately — sync runs in background
+    res.status(202).json({
+        success: true,
+        message: `Sync started for: ${subreddits.join(', ')} (limit: ${limit}). Check /api/sync/status for progress.`,
+    });
+
+    isSyncing = true;
+    syncRedditToDB(subreddits, limit).finally(() => { isSyncing = false; });
 });
 
-// ─────────────────────────────────────────────
-// Route 4: Store debug (dev only)
-// GET /api/store
-// ─────────────────────────────────────────────
-app.get('/api/store', (req, res) => {
-    const ids = [...problemsStore.keys()];
-    res.status(200).json({ count: problemsStore.size, ids });
+// ─────────────────────────────────────────────────────────────
+// Route 4: GET /api/sync/status
+// ─────────────────────────────────────────────────────────────
+app.get('/api/sync/status', (req, res) => {
+    res.status(200).json({ syncing: isSyncing });
 });
 
-// Start server
-app.listen(PORT, () => {
-    console.log(`\n🚀 Orbit Backend v3.0 running on http://localhost:${PORT}`);
+// ─────────────────────────────────────────────────────────────
+// Route 5: GET /api/reddit  — raw Reddit posts (debug)
+// ─────────────────────────────────────────────────────────────
+app.get('/api/reddit', async (req, res) => {
+    try {
+        const subreddit = req.query.subreddit || 'startups';
+        const posts = await fetchRedditPosts([subreddit], 20);
+        res.status(200).json({ success: true, count: posts.length, data: posts });
+    } catch (error) {
+        res.status(500).json({ success: false, message: error.message });
+    }
+});
+
+// ─────────────────────────────────────────────────────────────
+// Route 6: GET /api/health
+// ─────────────────────────────────────────────────────────────
+app.get('/api/health', async (req, res) => {
+    const db = await healthCheck();
+    res.status(db ? 200 : 503).json({
+        status: db ? 'ok' : 'degraded',
+        database: db ? 'connected' : 'unreachable',
+        syncing: isSyncing,
+    });
+});
+
+// ─────────────────────────────────────────────────────────────
+// Boot
+// ─────────────────────────────────────────────────────────────
+app.listen(PORT, async () => {
+    console.log(`\n🚀 Orbit Backend v4.0 running on http://localhost:${PORT}`);
     console.log(`\n📡 Endpoints:`);
-    console.log(`   GET /api/problems              → AI-processed problem feed`);
-    console.log(`   GET /api/problems/:id          → Problem detail by ID`);
-    console.log(`   GET /api/reddit                → Raw Reddit posts`);
-    console.log(`   GET /api/store                 → Debug: list stored IDs`);
-    console.log(`\n🔑 GitHub Token: ${process.env.GITHUB_TOKEN ? '✅ loaded' : '❌ MISSING'}\n`);
+    console.log(`   GET  /api/problems          → Fetch from Supabase DB (fast)`);
+    console.log(`   GET  /api/problems/:id       → Single problem by UUID`);
+    console.log(`   POST /api/sync               → Trigger Reddit→AI→DB pipeline`);
+    console.log(`   GET  /api/sync/status        → Is sync running?`);
+    console.log(`   GET  /api/health             → DB connection status`);
+    console.log(`\n🔑 GitHub Token:  ${process.env.GITHUB_TOKEN ? '✅' : '❌ MISSING'}`);
+    console.log(`🗄️  Supabase URL:  ${process.env.SUPABASE_URL ? '✅' : '❌ MISSING'}`);
+    console.log(`🗄️  Supabase Key:  ${process.env.SUPABASE_KEY ? '✅' : '❌ MISSING'}\n`);
+
+    // DB health check at startup
+    const dbOk = await healthCheck();
+    if (dbOk) {
+        console.log(`✅ Supabase connected successfully!\n`);
+    } else {
+        console.error(`❌ Supabase connection failed! Check SUPABASE_URL and SUPABASE_KEY in .env\n`);
+    }
 });

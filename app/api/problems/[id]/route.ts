@@ -9,11 +9,11 @@ export async function GET(
   const { id } = await params;
 
   try {
-    console.log(`[Proxy] GET /api/problems/${id} → forwarding to backend`);
+    console.log(`[Proxy] GET /api/problems/${id}`);
 
     const res = await fetch(`${BACKEND_URL}/api/problems/${id}`, {
       cache: 'no-store',
-      headers: { 'Content-Type': 'application/json' },
+      signal: AbortSignal.timeout(8000),
     });
 
     const data = await res.json();
@@ -25,14 +25,10 @@ export async function GET(
     return NextResponse.json(data);
   } catch (error: unknown) {
     const message = error instanceof Error ? error.message : 'Unknown error';
-    console.error(`[Proxy] Failed to fetch problem ${id}:`, message);
+    console.error(`[Proxy] /api/problems/${id} failed:`, message);
 
     return NextResponse.json(
-      {
-        success: false,
-        message: 'Could not reach the Orbit backend.',
-        error: message,
-      },
+      { success: false, message: 'Could not reach backend.', error: message },
       { status: 502 }
     );
   }

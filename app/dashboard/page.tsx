@@ -30,14 +30,26 @@ export default function Page() {
   const [problems, setProblems] = useState<Problem[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [syncing, setSyncing] = useState(false);
+  const [isFallback, setIsFallback] = useState(false);
 
   useEffect(() => {
     async function fetchProblems() {
       try {
-        // Call our own Next.js proxy instead of the backend directly.
-        // This avoids CORS errors and browser network issues entirely.
         const res = await fetch("/api/problems", { cache: "no-store" });
         const json = await res.json();
+
+        if (json.syncing) {
+          // DB is empty, backend is running sync in background
+          setSyncing(true);
+          setProblems([]);
+          // Auto-poll every 15s until data arrives
+          setTimeout(() => fetchProblems(), 15000);
+          return;
+        }
+
+        setSyncing(false);
+        setIsFallback(!!json.fallback);
 
         if (json.success && json.data.length > 0) {
           setProblems(json.data);
@@ -53,6 +65,15 @@ export default function Page() {
     }
     fetchProblems();
   }, []);
+
+  // Manual sync trigger
+  async function triggerSync() {
+    setSyncing(true);
+    try {
+      await fetch("/api/sync", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({}) });
+      setTimeout(() => window.location.reload(), 15000); // Reload after 15s
+    } catch { setSyncing(false); }
+  }
 
   // Compute category counts from real data
   const categoryCounts: Record<string, number> = {};
@@ -128,12 +149,30 @@ export default function Page() {
 </aside>
 <main className="flex-1 overflow-y-auto custom-scrollbar bg-surface px-8 py-8">
 
+{/* ── Syncing Banner (DB empty, pipeline running) ── */}
+{syncing && (
+<div className="mb-6 flex items-center gap-4 px-5 py-4 bg-primary/5 border border-primary/20 rounded-xl">
+  <div className="w-5 h-5 border-2 border-primary/30 border-t-primary rounded-full animate-spin shrink-0"></div>
+  <div className="flex-1">
+    <p className="text-xs font-bold text-primary uppercase tracking-widest">Syncing Reddit Data</p>
+    <p className="text-xs text-on-surface-variant mt-0.5">AI is processing fresh problems from Reddit. Page will auto-refresh in ~15 seconds.</p>
+  </div>
+</div>
+)}
+
+{/* ── Fallback Banner ── */}
+{isFallback && !syncing && (
+<div className="mb-6 flex items-center gap-4 px-5 py-3 bg-amber-50 border border-amber-200 rounded-xl">
+  <span className="material-symbols-outlined text-amber-500 text-lg">info</span>
+  <p className="text-xs text-amber-800 font-medium flex-1">Showing sample data — backend is offline. Start the backend and click <button onClick={triggerSync} className="underline font-bold">Sync Now</button> to load real problems.</p>
+</div>
+)}
+
 {/* ── Loading State ── */}
 {loading && (
 <div className="flex flex-col items-center justify-center py-32 gap-4">
-  <div className="w-10 h-10 border-3 border-primary/20 border-t-primary rounded-full animate-spin"></div>
-  <p className="text-sm text-on-surface-variant font-medium animate-pulse">Scanning Reddit for market signals...</p>
-  <p className="text-[10px] text-secondary uppercase tracking-widest">This may take 30–60 seconds</p>
+  <div className="w-10 h-10 border-2 border-primary/20 border-t-primary rounded-full animate-spin"></div>
+  <p className="text-sm text-on-surface-variant font-medium animate-pulse">Loading from database...</p>
 </div>
 )}
 
@@ -146,12 +185,15 @@ export default function Page() {
 </div>
 )}
 
-{/* ── Empty State ── */}
-{!loading && !error && problems.length === 0 && (
+{/* ── Empty + Syncing State ── */}
+{!loading && !error && problems.length === 0 && !syncing && (
 <div className="flex flex-col items-center justify-center py-32 gap-4">
   <span className="material-symbols-outlined text-4xl text-secondary">inbox</span>
-  <p className="text-sm text-on-surface-variant font-medium">No problems found</p>
-  <p className="text-xs text-secondary">Try a different subreddit or check back later.</p>
+  <p className="text-sm text-on-surface-variant font-medium">No problems in database yet</p>
+  <p className="text-xs text-secondary mb-2">Trigger a sync to fetch and process real problems from Reddit.</p>
+  <button onClick={triggerSync} className="px-6 py-2 bg-primary text-white rounded-lg text-xs font-bold uppercase tracking-widest hover:scale-105 transition-all">
+    Sync Reddit Now
+  </button>
 </div>
 )}
 
