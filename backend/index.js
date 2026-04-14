@@ -4,13 +4,13 @@ const cors = require('cors');
 const { fetchRedditPosts, preparePostText } = require('./redditService');
 const { processWithAI, sleep } = require('./aiService');
 const { calculateOrbitScore } = require('./scoreService');
-const { getProblems, getProblemById, insertProblems, healthCheck } = require('./supabaseService');
+const { getProblems, getProblemById, insertProblems, healthCheck, hasProblemWithUrl } = require('./supabaseService');
 
 const app = express();
 const PORT = process.env.PORT || 8000;
 
-// Curated subreddits with high complaint density
-const DEFAULT_SUBREDDITS = ['startups', 'smallbusiness', 'SaaS', 'webdev', 'freelance'];
+// Curated subreddits with concentrated startup problems
+const DEFAULT_SUBREDDITS = ['startups', 'Entrepreneur', 'SaaS', 'smallbusiness', 'india'];
 
 // Track whether a sync is currently running to prevent overlap
 let isSyncing = false;
@@ -47,8 +47,18 @@ async function syncRedditToDB(subreddits = DEFAULT_SUBREDDITS, limit = 5) {
     // Step 2: AI process + score each post
     const processed = [];
 
+    let skipped = 0;
+
     for (let i = 0; i < rawPosts.length; i++) {
         const post = rawPosts[i];
+
+        // Ensure we don't process posts already in DB to save AI compute & time
+        if (await hasProblemWithUrl(post.url)) {
+            console.log(`[Sync] ⏭️ Skipped (already in DB): "${post.title.substring(0, 50)}..."`);
+            skipped++;
+            continue;
+        }
+
         const inputText = preparePostText(post, 1000);
 
         console.log(`[Sync] Post ${i + 1}/${rawPosts.length}: "${post.title.substring(0, 65)}..." (r/${post.subreddit}, ↑${post.upvotes})`);
@@ -86,10 +96,10 @@ async function syncRedditToDB(subreddits = DEFAULT_SUBREDDITS, limit = 5) {
     const inserted = await insertProblems(processed);
 
     console.log(`${'─'.repeat(60)}`);
-    console.log(`[Sync] Done: ${rawPosts.length} fetched → ${processed.length} processed → ${inserted} inserted to DB`);
+    console.log(`[Sync] Done: ${rawPosts.length} fetched | ${skipped} skipped (dupes) | ${processed.length} AI processed | ${inserted} inserted to DB`);
     console.log(`${'─'.repeat(60)}\n`);
 
-    return { fetched: rawPosts.length, processed: processed.length, inserted };
+    return { fetched: rawPosts.length, processed: processed.length, skipped, inserted };
 }
 
 // ─────────────────────────────────────────────────────────────
@@ -207,7 +217,7 @@ app.get('/api/health', async (req, res) => {
 // Boot
 // ─────────────────────────────────────────────────────────────
 app.listen(PORT, async () => {
-    console.log(`\n🚀 Orbit Backend v4.0 running on http://localhost:${PORT}`);
+    console.log(`\n🚀 Orbit Backend v5.0 running on http://localhost:${PORT}`);
     console.log(`\n📡 Endpoints:`);
     console.log(`   GET  /api/problems          → Fetch from Supabase DB (fast)`);
     console.log(`   GET  /api/problems/:id       → Single problem by UUID`);
@@ -222,7 +232,32 @@ app.listen(PORT, async () => {
     const dbOk = await healthCheck();
     if (dbOk) {
         console.log(`✅ Supabase connected successfully!\n`);
+
+        // ── Startup sync: run if DB has fewer than 5 rows ──────────────
+        // Prevents re-triggering on every nodemon restart while ensuring
+        // a cold-start server always seeds itself with fresh data.
+        const existingProblems = await getProblems(5);
+        const rowCount = existingProblems.length;
+
+        if (rowCount < 5 && !isSyncing) {
+            console.log(`[Boot] DB has <5 rows — running initial sync to seed data...\n`);
+            isSyncing = true;
+            syncRedditToDB(DEFAULT_SUBREDDITS, 20).finally(() => { isSyncing = false; });
+        } else {
+            console.log(`[Boot] DB already populated (${rowCount}+ rows) — skipping startup sync.\n`);
+        }
     } else {
         console.error(`❌ Supabase connection failed! Check SUPABASE_URL and SUPABASE_KEY in .env\n`);
     }
+
+    // ── Hourly background sync ──
+    setInterval(() => {
+        if (!isSyncing) {
+            console.log('\n[Auto-Sync] ⏰ Hourly sync starting to discover fresh problems...');
+            isSyncing = true;
+            syncRedditToDB(DEFAULT_SUBREDDITS, 20).finally(() => { isSyncing = false; });
+        } else {
+            console.log('\n[Auto-Sync] ⏳ Skipped hourly sync — a sync is already in progress.');
+        }
+    }, 60 * 60 * 1000); // Every 1 hour
 });

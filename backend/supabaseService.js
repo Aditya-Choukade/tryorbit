@@ -159,4 +159,20 @@ async function healthCheck() {
     }
 }
 
-module.exports = { getProblems, getProblemById, insertProblem, insertProblems, healthCheck };
+/**
+ * Check if the given Reddit URL has already been processed and saved.
+ * @param {string} url
+ * @returns {Promise<boolean>}
+ */
+async function hasProblemWithUrl(url) {
+    if (!url) return false;
+    const { data } = await supabase
+        .from('problems')
+        .select('id')
+        .eq('url', url)
+        .limit(1);
+    
+    return data && data.length > 0;
+}
+
+module.exports = { getProblems, getProblemById, insertProblem, insertProblems, healthCheck, hasProblemWithUrl };

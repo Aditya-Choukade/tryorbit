@@ -8,9 +8,9 @@ const axios = require('axios');
  * @returns {Promise<Array>} Array of cleaned post objects.
  */
 async function fetchFromSubreddit(subreddit, limit = 25) {
-    // Search explicitly for complaint keywords to extract heavily concentrated problems
-    const keywords = "frustrating OR hate OR annoying OR struggle OR problem OR hard OR manual";
-    const url = `https://www.reddit.com/r/${subreddit}/search.json?q=${encodeURIComponent(keywords)}&restrict_sr=on&sort=new&limit=${limit}`;
+    // Fetch the genuine newest posts — not keyword-filtered — so we catch
+    // fresh discussions before they gain traction.
+    const url = `https://www.reddit.com/r/${subreddit}/new.json?limit=${limit}&raw_json=1`;
 
     const response = await axios.get(url, {
         headers: {
@@ -29,7 +29,8 @@ async function fetchFromSubreddit(subreddit, limit = 25) {
             upvotes: d.ups || 0,
             comments: d.num_comments || 0,
             subreddit: d.subreddit,
-            url: `https://reddit.com${d.permalink}`
+            url: `https://reddit.com${d.permalink}`,
+            created_utc: d.created_utc || 0
         };
     });
 }
@@ -42,14 +43,14 @@ async function fetchFromSubreddit(subreddit, limit = 25) {
  * @param {number} totalLimit - Max total posts to return after combining.
  * @returns {Promise<Array>} Combined, deduplicated, filtered post array.
  */
-async function fetchRedditPosts(subreddits = ['startups'], totalLimit = 15) {
+async function fetchRedditPosts(subreddits = ['startups'], totalLimit = 30) {
     const allPosts = [];
 
     console.log(`\n[RedditService] Fetching from ${subreddits.length} subreddit(s): ${subreddits.join(', ')}`);
 
     for (const sub of subreddits) {
         try {
-            const posts = await fetchFromSubreddit(sub, 10);
+            const posts = await fetchFromSubreddit(sub, 20); // fetch plenty to ensure we hit totalLimit
             console.log(`[RedditService]   r/${sub} → ${posts.length} raw posts`);
             allPosts.push(...posts);
         } catch (err) {
@@ -68,26 +69,27 @@ async function fetchRedditPosts(subreddits = ['startups'], totalLimit = 15) {
 
     // ── Filter weak or promotional posts ──
     const strong = unique.filter(post => {
-        // Must have a title
-        if (!post.title || post.title.length < 10) return false;
-        
-        // Combined text must have some substance
-        const combined = post.title + ' ' + post.content;
-        if (combined.length < 30) return false;
-        
-        // Skip mod/bot posts and blatant self-promotion/guides
-        const lowerText = combined.toLowerCase();
+        // Must have a meaningful title
+        if (!post.title || post.title.length < 15) return false;
+
+        // Must have some body content (pure link posts / empty selftext skipped)
+        if (!post.content || post.content.trim().length < 40) return false;
+
+        // Skip mod / megathread / promotional posts
+        const lower = (post.title + ' ' + post.content).toLowerCase();
         if (
-            lowerText.includes('[hiring') || 
-            lowerText.includes('[weekly') || 
-            lowerText.includes('megathread') ||
-            lowerText.includes('how i got') ||
-            lowerText.includes('how we got') ||
-            lowerText.includes('my first 10') ||
-            lowerText.includes('my first 100') ||
-            lowerText.includes('just launched') ||
-            lowerText.includes('here is how') ||
-            lowerText.includes('guide to')
+            lower.includes('[hiring') ||
+            lower.includes('[weekly') ||
+            lower.includes('megathread') ||
+            lower.includes('how i got') ||
+            lower.includes('how we got') ||
+            lower.includes('my first 10') ||
+            lower.includes('my first 100') ||
+            lower.includes('just launched') ||
+            lower.includes('here is how') ||
+            lower.includes('guide to') ||
+            lower.includes('ama:') ||
+            lower.includes('ask me anything')
         ) {
             return false;
         }
@@ -95,8 +97,8 @@ async function fetchRedditPosts(subreddits = ['startups'], totalLimit = 15) {
         return true;
     });
 
-    // ── Sort by upvotes (highest first) and limit ──
-    const sorted = strong.sort((a, b) => b.upvotes - a.upvotes).slice(0, totalLimit);
+    // ── Sort by newest (highest timestamp first) and limit ──
+    const sorted = strong.sort((a, b) => b.created_utc - a.created_utc).slice(0, totalLimit);
 
     console.log(`[RedditService] Total: ${allPosts.length} raw → ${unique.length} unique → ${strong.length} strong → ${sorted.length} returned\n`);
 
