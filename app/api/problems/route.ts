@@ -61,8 +61,9 @@ export async function GET(request: Request) {
   try {
     const { searchParams } = new URL(request.url);
     const limit = searchParams.get('limit') || '20';
+    const sort  = searchParams.get('sort')  || 'orbit_score';
 
-    const backendUrl = `${BACKEND_URL}/api/problems?limit=${limit}`;
+    const backendUrl = `${BACKEND_URL}/api/problems?limit=${limit}&sort=${sort}`;
     console.log(`[Proxy] GET /api/problems → ${backendUrl}`);
 
     const res = await fetch(backendUrl, {

@@ -32,39 +32,42 @@ export default function Page() {
   const [error, setError] = useState<string | null>(null);
   const [syncing, setSyncing] = useState(false);
   const [isFallback, setIsFallback] = useState(false);
+  const [sortBy, setSortBy] = useState<'orbit_score' | 'newest' | 'trend'>('orbit_score');
+
+  async function fetchProblems(sort = sortBy) {
+    setLoading(true);
+    setError(null);
+    try {
+      const res = await fetch(`/api/problems?sort=${sort}`, { cache: "no-store" });
+      const json = await res.json();
+
+      if (json.syncing) {
+        setSyncing(true);
+        setProblems([]);
+        setTimeout(() => fetchProblems(sort), 15000);
+        return;
+      }
+
+      setSyncing(false);
+      setIsFallback(!!json.fallback);
+
+      if (json.success && json.data.length > 0) {
+        setProblems(json.data);
+      } else {
+        setProblems([]);
+      }
+    } catch (err) {
+      console.error("Failed to fetch problems:", err);
+      setError("Failed to load problems. Make sure the backend is running.");
+    } finally {
+      setLoading(false);
+    }
+  }
 
   useEffect(() => {
-    async function fetchProblems() {
-      try {
-        const res = await fetch("/api/problems", { cache: "no-store" });
-        const json = await res.json();
-
-        if (json.syncing) {
-          // DB is empty, backend is running sync in background
-          setSyncing(true);
-          setProblems([]);
-          // Auto-poll every 15s until data arrives
-          setTimeout(() => fetchProblems(), 15000);
-          return;
-        }
-
-        setSyncing(false);
-        setIsFallback(!!json.fallback);
-
-        if (json.success && json.data.length > 0) {
-          setProblems(json.data);
-        } else {
-          setProblems([]);
-        }
-      } catch (err) {
-        console.error("Failed to fetch problems:", err);
-        setError("Failed to load problems. Make sure the backend is running.");
-      } finally {
-        setLoading(false);
-      }
-    }
-    fetchProblems();
-  }, []);
+    fetchProblems(sortBy);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [sortBy]);
 
   // Manual sync trigger
   async function triggerSync() {
@@ -257,10 +260,14 @@ export default function Page() {
 </div>
 <div className="flex items-center gap-2">
 <span className="text-[10px] font-bold text-secondary uppercase mr-2">Sort by</span>
-<select className="bg-surface-bright border-outline rounded-lg text-[10px] font-bold uppercase tracking-widest focus:ring-primary py-1 px-3">
-<option>Orbit Score</option>
-<option>Newest</option>
-<option>Trend Strength</option>
+<select
+  value={sortBy}
+  onChange={e => setSortBy(e.target.value as 'orbit_score' | 'newest' | 'trend')}
+  className="bg-surface-bright border border-outline rounded-lg text-[10px] font-bold uppercase tracking-widest focus:ring-2 focus:ring-primary/30 py-1.5 px-3 cursor-pointer transition-all"
+>
+  <option value="orbit_score">Orbit Score</option>
+  <option value="newest">Newest</option>
+  <option value="trend">Trend Strength</option>
 </select>
 </div>
 </div>

@@ -108,9 +108,12 @@ async function syncRedditToDB(subreddits = DEFAULT_SUBREDDITS, limit = 5) {
 app.get('/api/problems', async (req, res) => {
     try {
         const limit = Math.min(parseInt(req.query.limit) || 20, 50);
-        console.log(`[API] GET /api/problems (limit: ${limit})`);
+        const VALID_SORTS = ['orbit_score', 'newest', 'trend'];
+        const sort = VALID_SORTS.includes(req.query.sort) ? req.query.sort : 'orbit_score';
 
-        const problems = await getProblems(limit);
+        console.log(`[API] GET /api/problems (limit: ${limit}, sort: ${sort})`);
+
+        const problems = await getProblems(limit, sort);
 
         if (problems.length === 0) {
             // DB is empty — auto-trigger a sync in the background

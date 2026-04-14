@@ -41,14 +41,24 @@ function rowToApiShape(row) {
 /**
  * Fetch latest problems from Supabase (used for the dashboard feed).
  * @param {number} limit
+ * @param {'orbit_score'|'newest'|'trend'} sort
  * @returns {Promise<Array>}
  */
-async function getProblems(limit = 20) {
-    const { data, error } = await supabase
-        .from('problems')
-        .select('*')
-        .order('created_at', { ascending: false })
-        .limit(limit);
+async function getProblems(limit = 20, sort = 'orbit_score') {
+    let query = supabase.from('problems').select('*').limit(limit);
+
+    if (sort === 'newest') {
+        query = query.order('created_at', { ascending: false });
+    } else if (sort === 'trend') {
+        // trend = upvotes + comments*2 — Supabase supports computed ordering via raw SQL
+        query = query.order('upvotes', { ascending: false })
+                     .order('comments', { ascending: false });
+    } else {
+        // Default: orbit_score DESC
+        query = query.order('orbit_score', { ascending: false });
+    }
+
+    const { data, error } = await query;
 
     if (error) {
         console.error('[Supabase] getProblems error:', error.message);
