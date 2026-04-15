@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useState } from "react";
+import Navbar from "../components/Navbar";
 
 interface ValidationResult {
   verdict: "Build" | "Validate Further" | "High Risk";
@@ -56,26 +57,7 @@ export default function ValidatePage() {
 
   return (
     <div className="bg-background text-on-surface font-body antialiased min-h-screen flex flex-col">
-      {/* eslint-disable @next/next/no-img-element */}
-      <nav className="fixed top-0 w-full z-50 bg-white/80 backdrop-blur-xl flex justify-between items-center px-6 py-3 border-b border-outline shadow-sm transition-all">
-        <div className="flex items-center gap-8">
-          <Link href="/dashboard" className="flex items-center gap-2 group">
-            <img src="/orbit-logo.png" alt="Orbit Logo" className="w-6 h-6 object-contain group-hover:rotate-12 transition-transform duration-300" />
-            <span className="text-xl font-black tracking-tighter text-slate-900 group-hover:text-primary transition-colors">Orbit</span>
-          </Link>
-          <div className="hidden md:flex items-center gap-6">
-            <Link className="text-slate-500 text-sm font-medium font-['Inter'] hover:text-primary transition-colors" href="/dashboard">Feed</Link>
-            <Link className="text-primary text-sm font-bold border-b-2 border-primary font-['Inter']" href="/validate">Validate Idea</Link>
-            <Link className="text-slate-500 text-sm font-medium font-['Inter'] hover:text-primary transition-colors" href="/saved">Saved</Link>
-          </div>
-        </div>
-        <form action="/search" className="flex-1 max-w-xl px-8 group">
-          <div className="flex items-center bg-surface-container rounded-2xl px-4 py-2 gap-3 transition-all focus-within:ring-2 focus-within:ring-primary/20 border border-transparent focus-within:border-primary/20 focus-within:bg-white">
-            <span className="material-symbols-outlined text-on-surface-variant text-xl group-focus-within:text-primary transition-colors">search</span>
-            <input name="q" className="bg-transparent border-none focus:ring-0 text-xs w-full font-medium" placeholder="Search signals..." type="text" />
-          </div>
-        </form>
-      </nav>
+      <Navbar />
 
       <main className="flex-1 pt-[81px] pb-32">
         <section className="px-12 max-w-5xl mx-auto">

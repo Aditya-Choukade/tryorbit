@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useEffect, useState, useRef } from "react";
 import { useSavedProblems } from "../hooks/useSavedProblems";
+import Navbar from "../components/Navbar";
 
 // Type definition for a problem from the API
 interface Problem {
@@ -125,47 +126,7 @@ export default function Page() {
 
   return (
     <div className="text-on-surface flex flex-col h-screen overflow-hidden bg-background">
-      {/* eslint-disable @next/next/no-img-element */}
-      <nav className="fixed top-0 w-full z-50 bg-white/80 backdrop-blur-xl flex justify-between items-center px-6 py-3 border-b border-outline shadow-sm transition-all">
-        <div className="flex items-center gap-8">
-          <Link href="/" className="flex items-center gap-2 group">
-            <img src="/orbit-logo.png" alt="Orbit Logo" className="w-6 h-6 object-contain group-hover:rotate-12 transition-transform duration-300" />
-            <span className="text-xl font-black tracking-tighter text-slate-900 group-hover:text-primary transition-colors">Orbit</span>
-          </Link>
-          <div className="hidden md:flex items-center gap-6">
-            <Link className="text-primary text-sm font-bold border-b-2 border-primary font-['Inter'] relative py-1" href="/dashboard">Feed</Link>
-            <Link className="text-slate-500 text-sm font-medium font-['Inter'] hover:text-primary transition-colors py-1" href="/validate">Validate Idea</Link>
-            <Link className="text-slate-500 text-sm font-medium font-['Inter'] hover:text-primary transition-colors py-1 flex items-center gap-1.5" href="/saved">
-              Saved
-              {savedProblems.length > 0 && (
-                <span className="bg-primary/10 text-primary text-[9px] px-1.5 rounded-full font-black">
-                  {savedProblems.length}
-                </span>
-              )}
-            </Link>
-          </div>
-        </div>
-
-        <div className="flex-1 max-w-xl px-8 relative">
-          <form action="/search" className="flex items-center bg-surface-container rounded-2xl px-4 py-2 gap-3 transition-all focus-within:ring-2 focus-within:ring-primary/20 border border-transparent focus-within:border-primary/20 focus-within:bg-white group">
-            <span className="material-symbols-outlined text-on-surface-variant text-xl group-focus-within:text-primary transition-colors">search</span>
-            <input name="q" className="bg-transparent border-none focus:ring-0 text-xs w-full font-medium" placeholder="Search problems (e.g. Fintech)..." type="text"/>
-            <div className="hidden sm:flex items-center gap-1 opacity-40 group-focus-within:opacity-0 transition-opacity">
-              <span className="text-[10px] border border-outline rounded px-1 px-1.5">⌘</span>
-              <span className="text-[10px] border border-outline rounded px-1 px-1.5">K</span>
-            </div>
-          </form>
-        </div>
-
-        <div className="flex items-center gap-4">
-          <button onClick={triggerSync} className="bg-on-surface text-surface px-4 py-2 rounded-lg font-bold text-[9px] uppercase tracking-[0.2em] hover:bg-primary transition-all active:scale-95 shadow-lg shadow-black/5">
-            Collect Signal
-          </button>
-          <div className="w-8 h-8 rounded-full shadow-sm flex items-center justify-center overflow-hidden border border-outline hover:border-primary transition-colors cursor-pointer">
-            <img alt="Profile" src="https://lh3.googleusercontent.com/aida-public/AB6AXuBzEtQ0zxP4hscHxfuquKtAwx0wIub6vket9h8rnmNb5R-pcR6zuJnqZoJUagNfmPYpzqxQNiBgzvz2mpKjh0IkKj4BobbooDh4706GG5Ezg742LqEumCdsdaDR4y3Arw64JNxDBkMymRhVLqNEUmGWShf6eWytN0Gu6aryva7EwonxVy74Hs_a6eHjh98Omre2qpqW12024Wpx_JNnJvoarNANd4xMR6w_4h3_m4cBZFKu38FwQYd3OXR5JtqNrQvfYkIi59sNKQU5"/>
-          </div>
-        </div>
-      </nav>
+      <Navbar />
 
       <div className="flex flex-1 pt-[61px] overflow-hidden">
         {/* Sidebar */}

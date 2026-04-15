@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useEffect, useState, useCallback } from "react";
 import { useSearchParams } from "next/navigation";
 import { useSavedProblems } from "../hooks/useSavedProblems";
+import Navbar from "../components/Navbar";
 
 interface Problem {
   id: string;
@@ -94,54 +95,7 @@ export default function SearchPage() {
 
   return (
     <div className="text-on-surface flex flex-col min-h-screen bg-background">
-      {/* eslint-disable @next/next/no-img-element */}
-      <nav className="fixed top-0 w-full z-50 bg-white/80 backdrop-blur-xl flex justify-between items-center px-6 py-3 border-b border-outline shadow-sm transition-all">
-        <div className="flex items-center gap-8">
-          <Link href="/dashboard" className="flex items-center gap-2 group">
-            <img src="/orbit-logo.png" alt="Orbit Logo" className="w-6 h-6 object-contain group-hover:rotate-12 transition-transform duration-300" />
-            <span className="text-xl font-black tracking-tighter text-slate-900 group-hover:text-primary transition-colors">Orbit</span>
-          </Link>
-          <div className="hidden md:flex items-center gap-6">
-            <Link className="text-slate-500 text-sm font-medium font-['Inter'] hover:text-primary transition-colors" href="/dashboard">Feed</Link>
-            <Link className="text-slate-500 text-sm font-medium font-['Inter'] hover:text-primary transition-colors" href="/validate">Validate Idea</Link>
-            <Link className="text-slate-500 text-sm font-medium font-['Inter'] hover:text-primary transition-colors flex items-center gap-1.5" href="/saved">
-              Saved
-              {savedProblems.length > 0 && (
-                <span className="bg-primary/10 text-primary text-[9px] px-1.5 rounded-full font-black">
-                  {savedProblems.length}
-                </span>
-              )}
-            </Link>
-          </div>
-        </div>
-
-        {/* Active search bar */}
-        <div className="flex-1 max-w-xl px-8">
-          <form onSubmit={handleSubmit} className="flex items-center bg-white rounded-2xl px-4 py-2 gap-3 ring-2 ring-primary/10 border border-outline focus-within:ring-primary/30 transition-all shadow-sm group">
-            <span className="material-symbols-outlined text-on-surface-variant text-xl group-focus-within:text-primary transition-colors">search</span>
-            <input
-              id="search-input"
-              name="q"
-              value={inputValue}
-              onChange={e => setInputValue(e.target.value)}
-              className="bg-transparent border-none focus:ring-0 text-xs w-full font-bold text-on-surface"
-              placeholder="Search problems (e.g. Fintech, SaaS, payments...)"
-              autoFocus
-              type="text"
-            />
-            {inputValue && (
-              <button type="button" onClick={() => { setInputValue(""); setQuery(""); setResults([]); setSearched(false); }}
-                className="material-symbols-outlined text-secondary text-sm hover:text-primary p-1 rounded-full hover:bg-surface-container transition-all">close</button>
-            )}
-          </form>
-        </div>
-
-        <div className="flex items-center gap-4">
-          <Link href="/dashboard" className="bg-on-surface text-surface px-5 py-2.5 rounded-xl font-bold text-[10px] uppercase tracking-[0.2em] hover:bg-primary transition-all active:scale-95 shadow-sm">
-            Exit Search
-          </Link>
-        </div>
-      </nav>
+      <Navbar />
 
       <main className="flex-1 pt-[81px] pb-20 px-8 max-w-4xl mx-auto w-full">
           {/* Header */}
