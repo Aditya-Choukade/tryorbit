@@ -4,7 +4,7 @@ const cors = require('cors');
 const { fetchRedditPosts, preparePostText } = require('./redditService');
 const { processWithAI, sleep } = require('./aiService');
 const { calculateOrbitScore } = require('./scoreService');
-const { getProblems, getProblemById, insertProblems, healthCheck, hasProblemWithUrl } = require('./supabaseService');
+const { getProblems, getProblemById, insertProblems, healthCheck, hasProblemWithUrl, searchProblems } = require('./supabaseService');
 
 const app = express();
 const PORT = process.env.PORT || 8000;
@@ -110,10 +110,11 @@ app.get('/api/problems', async (req, res) => {
         const limit = Math.min(parseInt(req.query.limit) || 20, 50);
         const VALID_SORTS = ['orbit_score', 'newest', 'trend'];
         const sort = VALID_SORTS.includes(req.query.sort) ? req.query.sort : 'orbit_score';
+        const industry = req.query.industry || null;
 
-        console.log(`[API] GET /api/problems (limit: ${limit}, sort: ${sort})`);
+        console.log(`[API] GET /api/problems (limit: ${limit}, sort: ${sort}, industry: ${industry || 'all'})`);
 
-        const problems = await getProblems(limit, sort);
+        const problems = await getProblems(limit, sort, industry);
 
         if (problems.length === 0) {
             // DB is empty — auto-trigger a sync in the background
@@ -160,6 +161,85 @@ app.get('/api/problems/:id', async (req, res) => {
     } catch (error) {
         console.error('[API] GET /api/problems/:id error:', error.message);
         res.status(500).json({ success: false, message: 'Failed to fetch problem.', error: error.message });
+    }
+});
+
+// ─────────────────────────────────────────────────────────────
+// Route: GET /api/search?q=keyword  — keyword search from DB
+// ─────────────────────────────────────────────────────────────
+app.get('/api/search', async (req, res) => {
+    const q = (req.query.q || '').trim();
+    console.log(`[API] GET /api/search?q=${q}`);
+
+    if (!q) {
+        return res.status(400).json({ success: false, message: 'Query parameter ?q= is required.' });
+    }
+
+    try {
+        const results = await searchProblems(q, 20);
+        res.status(200).json({ success: true, count: results.length, query: q, data: results });
+    } catch (error) {
+        console.error('[API] /api/search error:', error.message);
+        res.status(500).json({ success: false, message: 'Search failed.', error: error.message });
+    }
+});
+
+// ─────────────────────────────────────────────────────────────
+// Route: POST /api/validate  — AI validates a startup idea
+// ─────────────────────────────────────────────────────────────
+app.post('/api/validate', async (req, res) => {
+    const { idea } = req.body;
+    if (!idea || idea.trim().length < 10) {
+        return res.status(400).json({ success: false, message: 'Please provide a startup idea (min 10 chars).' });
+    }
+
+    console.log(`[API] POST /api/validate: "${idea.substring(0, 80)}..."`);
+
+    const VALIDATE_PROMPT = `You are a startup analyst. A founder has described their idea below.
+Return ONLY valid JSON. No markdown, no explanation.
+
+Idea: "${idea}"
+
+Analyze and return:
+{
+  "verdict": "Build" | "Validate Further" | "High Risk",
+  "score": <0-100 demand score>,
+  "marketSize": "<1-2 sentence TAM estimate>",
+  "targetCustomer": "<who needs this most, 1 sentence>",
+  "competitors": ["<competitor 1>", "<competitor 2>", "<competitor 3>"],
+  "keyRisks": ["<risk 1>", "<risk 2>", "<risk 3>"],
+  "uniqueAngle": "<what gap this fills, 1 sentence>",
+  "firstStep": "<recommended first action for the founder, 1 sentence>"
+}`;
+
+    try {
+        const axios = require('axios');
+        const token = process.env.GITHUB_TOKEN;
+
+        const response = await axios.post(
+            'https://models.github.ai/inference/chat/completions',
+            {
+                model: 'gpt-4o-mini',
+                messages: [
+                    { role: 'system', content: 'You are a JSON API. Return ONLY valid JSON, no markdown.' },
+                    { role: 'user', content: VALIDATE_PROMPT }
+                ],
+                temperature: 0.3,
+                max_tokens: 700,
+                response_format: { type: 'json_object' }
+            },
+            {
+                headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
+                timeout: 30000
+            }
+        );
+
+        const raw = response.data.choices[0].message.content;
+        const parsed = JSON.parse(raw);
+        res.status(200).json({ success: true, idea, data: parsed });
+    } catch (error) {
+        console.error('[API] /api/validate error:', error.message);
+        res.status(500).json({ success: false, message: 'Validation failed. Try again.', error: error.message });
     }
 });
 

@@ -42,19 +42,23 @@ function rowToApiShape(row) {
  * Fetch latest problems from Supabase (used for the dashboard feed).
  * @param {number} limit
  * @param {'orbit_score'|'newest'|'trend'} sort
+ * @param {string|null} industry  - optional industry filter
  * @returns {Promise<Array>}
  */
-async function getProblems(limit = 20, sort = 'orbit_score') {
+async function getProblems(limit = 20, sort = 'orbit_score', industry = null) {
     let query = supabase.from('problems').select('*').limit(limit);
+
+    // Industry filter
+    if (industry && industry !== 'all') {
+        query = query.ilike('industry', industry);
+    }
 
     if (sort === 'newest') {
         query = query.order('created_at', { ascending: false });
     } else if (sort === 'trend') {
-        // trend = upvotes + comments*2 — Supabase supports computed ordering via raw SQL
         query = query.order('upvotes', { ascending: false })
                      .order('comments', { ascending: false });
     } else {
-        // Default: orbit_score DESC
         query = query.order('orbit_score', { ascending: false });
     }
 
@@ -62,6 +66,32 @@ async function getProblems(limit = 20, sort = 'orbit_score') {
 
     if (error) {
         console.error('[Supabase] getProblems error:', error.message);
+        throw new Error(error.message);
+    }
+
+    return (data || []).map(rowToApiShape);
+}
+
+/**
+ * Full-text keyword search across problem, summary, and industry.
+ * @param {string} query
+ * @param {number} limit
+ * @returns {Promise<Array>}
+ */
+async function searchProblems(query, limit = 20) {
+    if (!query || query.trim().length === 0) return [];
+
+    const term = `%${query.trim()}%`;
+
+    const { data, error } = await supabase
+        .from('problems')
+        .select('*')
+        .or(`problem.ilike.${term},summary.ilike.${term},industry.ilike.${term}`)
+        .order('orbit_score', { ascending: false })
+        .limit(limit);
+
+    if (error) {
+        console.error('[Supabase] searchProblems error:', error.message);
         throw new Error(error.message);
     }
 
@@ -185,4 +215,4 @@ async function hasProblemWithUrl(url) {
     return data && data.length > 0;
 }
 
-module.exports = { getProblems, getProblemById, insertProblem, insertProblems, healthCheck, hasProblemWithUrl };
+module.exports = { getProblems, getProblemById, insertProblem, insertProblems, healthCheck, hasProblemWithUrl, searchProblems };
