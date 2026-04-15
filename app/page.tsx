@@ -13,8 +13,8 @@ export default function Page() {
 <a className="text-stone-500 font-medium hover:text-orange-500 transition-colors duration-300 font-inter tracking-tight font-black uppercase text-[10px]" href="#">Intelligence</a>
 <a className="text-stone-500 font-medium hover:text-orange-500 transition-colors duration-300 font-inter tracking-tight font-black uppercase text-[10px]" href="#">Pricing</a>
 </div>
-<Link href="/onboarding/welcome" className="bg-primary text-white px-6 py-2.5 rounded-full font-bold text-[10px] uppercase tracking-[0.2em] scale-95 active:scale-90 transition-transform shadow-lg shadow-primary/20 inline-flex">
-            Get Early Access
+<Link href="/dashboard" className="bg-primary text-white px-6 py-2.5 rounded-full font-bold text-[10px] uppercase tracking-[0.2em] scale-95 active:scale-90 transition-transform shadow-lg shadow-primary/20 inline-flex">
+            Launch App
         </Link>
 </nav>
 {/* Hero Section */}
@@ -29,8 +29,8 @@ export default function Page() {
                     Orbit scans real user complaints across the web and turns them into startup-ready ideas. <span className="font-bold text-on-surface">Stop guessing.</span>
 </p>
 <div className="flex flex-wrap gap-4 pt-4">
-<Link href="/onboarding/welcome" className="bg-primary text-on-primary px-10 py-5 rounded-full font-bold text-[10px] uppercase tracking-[0.3em] hover:opacity-90 transition-all shadow-xl shadow-primary/20 inline-flex">
-                        Get Early Access
+<Link href="/dashboard" className="bg-primary text-on-primary px-10 py-5 rounded-full font-bold text-[10px] uppercase tracking-[0.3em] hover:opacity-90 transition-all shadow-xl shadow-primary/20 inline-flex">
+                        Start Exploring
                     </Link>
 <button className="border-2 border-outline-variant px-10 py-5 rounded-full font-bold text-[10px] uppercase tracking-[0.3em] hover:bg-surface-container-high transition-all">
                         Watch Demo
@@ -219,8 +219,8 @@ export default function Page() {
                 </h2>
 <div className="flex flex-col md:flex-row gap-4 max-w-lg mx-auto mt-12">
 <input suppressHydrationWarning className="flex-grow p-5 rounded-full bg-white text-on-surface border-none text-lg focus:ring-0" placeholder="you@company.com" type="email"/>
-<Link href="/onboarding/welcome" className="bg-on-surface text-white px-8 py-5 rounded-full font-black text-[10px] uppercase tracking-[0.3em] hover:scale-105 transition-transform inline-flex whitespace-nowrap">
-                        Join Waitlist
+<Link href="/login" className="bg-on-surface text-white px-8 py-5 rounded-full font-black text-[10px] uppercase tracking-[0.3em] hover:scale-105 transition-transform inline-flex whitespace-nowrap">
+                        Start Building
                     </Link>
 </div>
 <p className="mt-8 text-[10px] font-bold tracking-[0.3em] uppercase opacity-60">Join 2,500+ founders using Orbit</p>
