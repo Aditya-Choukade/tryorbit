@@ -66,6 +66,7 @@ export default function ValidatePage() {
           <div className="hidden md:flex items-center gap-6">
             <Link className="text-slate-500 text-sm font-medium font-['Inter'] hover:text-primary transition-colors" href="/dashboard">Feed</Link>
             <Link className="text-primary text-sm font-bold border-b-2 border-primary font-['Inter']" href="/validate">Validate Idea</Link>
+            <Link className="text-slate-500 text-sm font-medium font-['Inter'] hover:text-primary transition-colors" href="/saved">Saved</Link>
           </div>
         </div>
         <form action="/search" className="flex-1 max-w-xl px-8 group">

@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useEffect, useState, useRef } from "react";
+import { useSavedProblems } from "../hooks/useSavedProblems";
 
 // Type definition for a problem from the API
 interface Problem {
@@ -45,6 +46,7 @@ function SkeletonCard({ index }: { index: number }) {
 }
 
 export default function Page() {
+  const { savedProblems, toggleSave, isSaved } = useSavedProblems();
   const [problems, setProblems] = useState<Problem[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -133,6 +135,14 @@ export default function Page() {
           <div className="hidden md:flex items-center gap-6">
             <Link className="text-primary text-sm font-bold border-b-2 border-primary font-['Inter'] relative py-1" href="/dashboard">Feed</Link>
             <Link className="text-slate-500 text-sm font-medium font-['Inter'] hover:text-primary transition-colors py-1" href="/validate">Validate Idea</Link>
+            <Link className="text-slate-500 text-sm font-medium font-['Inter'] hover:text-primary transition-colors py-1 flex items-center gap-1.5" href="/saved">
+              Saved
+              {savedProblems.length > 0 && (
+                <span className="bg-primary/10 text-primary text-[9px] px-1.5 rounded-full font-black">
+                  {savedProblems.length}
+                </span>
+              )}
+            </Link>
           </div>
         </div>
 
@@ -378,8 +388,17 @@ export default function Page() {
                         </div>
 
                         <div className="flex items-center gap-3 ml-auto pl-4">
-                          <button className="w-10 h-10 flex items-center justify-center rounded-xl bg-surface-container text-secondary hover:text-primary hover:bg-primary/10 transition-all">
-                            <span className="material-symbols-outlined text-lg">bookmark</span>
+                          <button 
+                            onClick={() => toggleSave(problem)}
+                            className={`w-10 h-10 flex items-center justify-center rounded-xl transition-all ${
+                              isSaved(problem.id) 
+                                ? "bg-primary/10 text-primary" 
+                                : "bg-surface-container text-secondary hover:text-primary hover:bg-primary/10"
+                            }`}
+                          >
+                            <span className="material-symbols-outlined text-lg" style={isSaved(problem.id) ? { fontVariationSettings: "'FILL' 1" } : {}}>
+                              {isSaved(problem.id) ? "bookmark" : "bookmark"}
+                            </span>
                           </button>
                           <Link href={`/problem/${problem.id}`} className="bg-on-surface text-surface px-5 py-2.5 rounded-xl font-black text-[10px] tracking-widest uppercase hover:bg-primary transition-all active:scale-95 shadow-sm shadow-black/5">Open Gap</Link>
                         </div>

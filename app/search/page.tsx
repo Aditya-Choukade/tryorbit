@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useEffect, useState, useCallback } from "react";
 import { useSearchParams } from "next/navigation";
+import { useSavedProblems } from "../hooks/useSavedProblems";
 
 interface Problem {
   id: string;
@@ -44,6 +45,7 @@ function ScoreBadge({ score, label }: { score: number; label: string }) {
 }
 
 export default function SearchPage() {
+  const { savedProblems, toggleSave, isSaved } = useSavedProblems();
   const searchParams = useSearchParams();
   const initialQ = searchParams.get("q") || "";
 
@@ -102,6 +104,14 @@ export default function SearchPage() {
           <div className="hidden md:flex items-center gap-6">
             <Link className="text-slate-500 text-sm font-medium font-['Inter'] hover:text-primary transition-colors" href="/dashboard">Feed</Link>
             <Link className="text-slate-500 text-sm font-medium font-['Inter'] hover:text-primary transition-colors" href="/validate">Validate Idea</Link>
+            <Link className="text-slate-500 text-sm font-medium font-['Inter'] hover:text-primary transition-colors flex items-center gap-1.5" href="/saved">
+              Saved
+              {savedProblems.length > 0 && (
+                <span className="bg-primary/10 text-primary text-[9px] px-1.5 rounded-full font-black">
+                  {savedProblems.length}
+                </span>
+              )}
+            </Link>
           </div>
         </div>
 
@@ -216,7 +226,19 @@ export default function SearchPage() {
                   <div className="hidden sm:block max-w-sm shrink-0 border-l border-outline-variant pl-4">
                     <p className="text-[11px] text-secondary font-medium leading-relaxed italic font-serif line-clamp-1">&quot;{problem.summary}&quot;</p>
                   </div>
-                  <div className="flex items-center gap-4 ml-auto shrink-0">
+                  <div className="flex items-center gap-3 ml-auto shrink-0">
+                    <button 
+                      onClick={() => toggleSave(problem)}
+                      className={`w-10 h-10 flex items-center justify-center rounded-xl transition-all ${
+                        isSaved(problem.id) 
+                          ? "bg-primary/10 text-primary" 
+                          : "bg-surface-container text-secondary hover:text-primary hover:bg-primary/10"
+                      }`}
+                    >
+                      <span className="material-symbols-outlined text-lg" style={isSaved(problem.id) ? { fontVariationSettings: "'FILL' 1" } : {}}>
+                        bookmark
+                      </span>
+                    </button>
                     <Link href={`/problem/${problem.id}`}
                       className="bg-on-surface text-surface px-5 py-2.5 rounded-xl font-black text-[10px] tracking-widest uppercase hover:bg-primary transition-all active:scale-95 shadow-sm">
                       Details
