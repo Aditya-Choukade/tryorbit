@@ -60,10 +60,14 @@ const FALLBACK_PROBLEMS = [
 export async function GET(request: Request) {
   try {
     const { searchParams } = new URL(request.url);
-    const limit = searchParams.get('limit') || '20';
-    const sort  = searchParams.get('sort')  || 'orbit_score';
+    const limit    = searchParams.get('limit')    || '20';
+    const sort     = searchParams.get('sort')     || 'orbit_score';
+    const industry = searchParams.get('industry') || '';
 
-    const backendUrl = `${BACKEND_URL}/api/problems?limit=${limit}&sort=${sort}`;
+    const backendParams = new URLSearchParams({ limit, sort });
+    if (industry) backendParams.set('industry', industry);
+
+    const backendUrl = `${BACKEND_URL}/api/problems?${backendParams}`;
     console.log(`[Proxy] GET /api/problems → ${backendUrl}`);
 
     const res = await fetch(backendUrl, {

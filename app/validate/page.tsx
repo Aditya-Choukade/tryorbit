@@ -1,139 +1,248 @@
-import Link from "next/link";
+"use client";
 
-export default function Page() {
+import Link from "next/link";
+import { useState } from "react";
+
+interface ValidationResult {
+  verdict: "Build" | "Validate Further" | "High Risk";
+  score: number;
+  marketSize: string;
+  targetCustomer: string;
+  competitors: string[];
+  keyRisks: string[];
+  uniqueAngle: string;
+  firstStep: string;
+}
+
+const VERDICT_STYLES: Record<string, { bg: string; text: string; icon: string; border: string }> = {
+  "Build":            { bg: "bg-emerald-50", border: "border-emerald-200", text: "text-emerald-700", icon: "rocket_launch" },
+  "Validate Further": { bg: "bg-amber-50",   border: "border-amber-200",   text: "text-amber-700",   icon: "labs" },
+  "High Risk":        { bg: "bg-red-50",     border: "border-red-200",     text: "text-red-700",     icon: "warning" },
+};
+
+export default function ValidatePage() {
+  const [idea, setIdea] = useState("");
+  const [loading, setLoading] = useState(false);
+  const [result, setResult] = useState<ValidationResult | null>(null);
+  const [error, setError] = useState<string | null>(null);
+
+  async function handleValidate(e: React.FormEvent) {
+    e.preventDefault();
+    if (!idea.trim() || idea.trim().length < 10) return;
+    setLoading(true);
+    setResult(null);
+    setError(null);
+
+    try {
+      const res = await fetch("/api/validate", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ idea }),
+      });
+      const json = await res.json();
+      if (json.success && json.data) {
+        setResult(json.data);
+      } else {
+        setError(json.message || "Validation failed. Try again.");
+      }
+    } catch {
+      setError("Could not reach the server. Make sure the backend is running.");
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  const verdictStyle = result ? (VERDICT_STYLES[result.verdict] ?? VERDICT_STYLES["Validate Further"]) : null;
+
   return (
-    <div className="bg-background text-on-surface font-body antialiased">
+    <div className="bg-background text-on-surface font-body antialiased min-h-screen flex flex-col">
       {/* eslint-disable @next/next/no-img-element */}
-      {/* Top Navigation Bar */}
-<nav className="fixed top-0 w-full z-50 bg-white/70 backdrop-blur-xl flex justify-between items-center px-6 py-3 border-b border-outline shadow-sm">
-<div className="flex items-center gap-8">
-<div className="flex items-center gap-2"><img src="/orbit-logo.png" alt="Orbit Logo" className="w-6 h-6 object-contain" /><span className="text-xl font-black tracking-tighter text-slate-900">Orbit</span></div>
-<div className="hidden md:flex items-center gap-6">
-<Link className="text-slate-500 text-sm font-medium font-['Inter'] hover:text-[#FF7F6A] transition-colors duration-300" href="/dashboard">Feed</Link>
-<Link className="text-[#FF7F6A] text-sm font-bold border-b-2 border-[#FF7F6A] font-['Inter'] transition-colors duration-300" href="/validate">Validate Idea</Link>
-</div>
-</div>
-<div className="flex-1 max-w-xl px-8 relative group">
-<form action="/search" className="flex items-center bg-surface-container-high rounded-xl px-4 py-1.5 gap-3 transition-all focus-within:ring-2 focus-within:ring-primary/20">
-<span className="material-symbols-outlined text-on-surface-variant text-xl">search</span>
-<input name="q" className="bg-transparent border-none focus:ring-0 text-xs w-full font-medium" placeholder="Search problems (e.g. Fintech)..." type="text"/>
-</form>
-</div>
-<div className="flex items-center gap-4">
-<button className="bg-on-surface text-surface px-4 py-2 rounded-lg font-bold text-[9px] uppercase tracking-[0.2em] hover:scale-105 active:scale-95 duration-200">
-            New Discovery
-        </button>
-<button className="material-symbols-outlined text-on-surface-variant p-1.5 hover:bg-surface-container rounded-full transition-colors">notifications</button>
-<div className="w-8 h-8 rounded-full bg-surface-container-highest flex items-center justify-center overflow-hidden border border-outline">
-<img alt="Profile" src="https://lh3.googleusercontent.com/aida-public/AB6AXuBzEtQ0zxP4hscHxfuquKtAwx0wIub6vket9h8rnmNb5R-pcR6zuJnqZoJUagNfmPYpzqxQNiBgzvz2mpKjh0IkKj4BobbooDh4706GG5Ezg742LqEumCdsdaDR4y3Arw64JNxDBkMymRhVLqNEUmGWShf6eWytN0Gu6aryva7EwonxVy74Hs_a6eHjh98Omre2qpqW12024Wpx_JNnJvoarNANd4xMR6w_4h3_m4cBZFKu38FwQYd3OXR5JtqNrQvfYkIi59sNKQU5"/>
-</div>
-</div>
-</nav>
-{/* Main Content Area */}
-<main className="min-h-screen pt-[64px]">
-<section className="p-12 max-w-6xl mx-auto">
-{/* Hero Input Section */}
-<div className="mb-32 text-center">
-<span className="text-[10px] font-bold uppercase tracking-[0.4em] text-primary mb-8 block opacity-80">The Validation Engine</span>
-<h2 className="text-7xl md:text-8xl font-black tracking-tighter leading-[0.9] mb-16 text-on-surface">
-                    What are you <br/>
-<span className="font-serif italic font-light text-secondary">building?</span>
-</h2>
-{/* Minimalistic Chat-style Input */}
-<div className="max-w-2xl mx-auto relative group">
-<div className="absolute inset-0 bg-primary/5 blur-3xl rounded-full -z-10 opacity-0 group-focus-within:opacity-100 transition-opacity duration-500"></div>
-<div className="relative flex items-center bg-white border border-outline rounded-2xl p-2 pr-3 chat-input-shadow focus-within:border-primary/50 transition-all duration-300">
-<input className="w-full bg-transparent border-none py-4 px-6 text-lg focus:ring-0 placeholder:text-secondary/40 font-light text-on-surface" placeholder="Describe your startup idea..." type="text"/>
-<Link href="/prepare" className="bg-primary hover:bg-primary/90 text-on-primary w-12 h-12 rounded-xl flex items-center justify-center transition-all shadow-lg shadow-primary/10 active:scale-95 inline-flex">
-<span className="material-symbols-outlined" data-icon="arrow_forward">arrow_forward</span>
-</Link>
-</div>
-<div className="mt-4 flex justify-center gap-6">
-<span className="text-[10px] text-secondary/60 uppercase tracking-widest">Market Size</span>
-<span className="text-[10px] text-secondary/60 uppercase tracking-widest">Competition</span>
-<span className="text-[10px] text-secondary/60 uppercase tracking-widest">Sentiment</span>
-</div>
-</div>
-</div>
-{/* Dashboard Style Content */}
-<div className="editorial-grid">
-{/* Related Market Problems */}
-<div className="col-span-12 lg:col-span-7">
-<div className="flex justify-between items-end mb-8">
-<div>
-<p className="text-[10px] font-bold uppercase tracking-widest text-secondary mb-2">Market Signals</p>
-<h3 className="text-3xl font-black tracking-tighter text-on-surface">Related Market Problems</h3>
-</div>
-</div>
-<div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-{/* Card 1 */}
-<div className="bg-white p-8 rounded-xl border border-outline premium-card-shadow group hover:border-primary/30 transition-all">
-<div className="w-10 h-10 bg-surface-container-high rounded-lg flex items-center justify-center mb-6 text-primary">
-<span className="material-symbols-outlined text-xl" data-icon="search_insights">search_insights</span>
-</div>
-<h4 className="text-xl font-bold mb-3 tracking-tight text-on-surface">Inefficient Data Indexing</h4>
-<p className="text-secondary font-light leading-relaxed mb-6 text-sm">Current AI models struggle with real-time vectorization of unstructured legal documents.</p>
-<div className="flex items-center gap-2">
-<span className="text-[9px] font-bold uppercase tracking-widest text-primary py-1 px-3 bg-primary/10 rounded-full">High Urgency</span>
-</div>
-</div>
-{/* Card 2 */}
-<div className="bg-white p-8 rounded-xl border border-outline premium-card-shadow group hover:border-primary/30 transition-all">
-<div className="w-10 h-10 bg-surface-container-high rounded-lg flex items-center justify-center mb-6 text-primary">
-<span className="material-symbols-outlined text-xl" data-icon="account_tree">account_tree</span>
-</div>
-<h4 className="text-xl font-bold mb-3 tracking-tight text-on-surface">Fragmented Tooling</h4>
-<p className="text-secondary font-light leading-relaxed mb-6 text-sm">SMEs use an average of 12 disparate tools for customer lifecycle management.</p>
-<div className="flex items-center gap-2">
-<span className="text-[9px] font-bold uppercase tracking-widest text-secondary py-1 px-3 bg-surface-container-high rounded-full">Growth Trend</span>
-</div>
-</div>
-</div>
-</div>
-{/* Demand Insight */}
-<div className="col-span-12 lg:col-span-5">
-<div className="bg-white p-10 rounded-xl border border-outline premium-card-shadow h-full flex flex-col">
-<p className="text-[10px] font-bold uppercase tracking-widest text-secondary mb-8">Intelligence Report</p>
-<div className="mb-12">
-<div className="flex justify-between items-baseline mb-4">
-<h3 className="text-4xl font-black tracking-tighter text-on-surface">Demand Insight</h3>
-<div className="text-right">
-<span className="text-5xl font-black text-primary">88</span>
-<span className="text-lg font-light text-secondary/40">/100</span>
-</div>
-</div>
-<div className="w-full h-1.5 bg-surface-variant rounded-full overflow-hidden">
-<div className="h-full bg-primary rounded-full" style={{ width: "88%" }}></div>
-</div>
-</div>
-<div className="space-y-6 flex-1">
-<p className="text-lg font-light leading-relaxed text-on-surface">
-                                Your idea sits in a <span className="font-bold text-primary">high-velocity corridor</span>. Market heat is concentrated in generative AI for boutique legal firms.
-                            </p>
-<p className="text-secondary leading-relaxed font-light text-sm">
-                                Competitive analysis reveals a gap in "Human-in-the-loop" verification layers. Your proposal addresses the <span className="italic font-serif text-on-surface">accuracy deficit</span>.
-                            </p>
-</div>
-<div className="pt-8 border-t border-outline mt-8">
-<div className="flex items-center justify-between">
-<div>
-<p className="text-[10px] font-bold uppercase tracking-widest text-secondary/50">Verdict</p>
-<p className="font-bold text-on-surface">Strong "Build" Signal</p>
-</div>
-<span className="material-symbols-outlined text-primary scale-125" data-icon="verified" data-weight="fill" style={{ fontVariationSettings: "\'FILL\' 1" }}>verified</span>
-</div>
-</div>
-</div>
-</div>
-</div>
-{/* Footer Quote / Visual */}
-<div className="mt-32 pt-16 border-t border-outline text-center">
-<p className="text-secondary/60 font-light italic max-w-xl mx-auto text-sm">
-                    "The best way to predict the future is to invent it, but the second best way is to validate the demand for it algorithmically."
-                </p>
-</div>
-</section>
-</main>
+      <nav className="fixed top-0 w-full z-50 bg-white/80 backdrop-blur-xl flex justify-between items-center px-6 py-3 border-b border-outline shadow-sm transition-all">
+        <div className="flex items-center gap-8">
+          <Link href="/dashboard" className="flex items-center gap-2 group">
+            <img src="/orbit-logo.png" alt="Orbit Logo" className="w-6 h-6 object-contain group-hover:rotate-12 transition-transform duration-300" />
+            <span className="text-xl font-black tracking-tighter text-slate-900 group-hover:text-primary transition-colors">Orbit</span>
+          </Link>
+          <div className="hidden md:flex items-center gap-6">
+            <Link className="text-slate-500 text-sm font-medium font-['Inter'] hover:text-primary transition-colors" href="/dashboard">Feed</Link>
+            <Link className="text-primary text-sm font-bold border-b-2 border-primary font-['Inter']" href="/validate">Validate Idea</Link>
+          </div>
+        </div>
+        <form action="/search" className="flex-1 max-w-xl px-8 group">
+          <div className="flex items-center bg-surface-container rounded-2xl px-4 py-2 gap-3 transition-all focus-within:ring-2 focus-within:ring-primary/20 border border-transparent focus-within:border-primary/20 focus-within:bg-white">
+            <span className="material-symbols-outlined text-on-surface-variant text-xl group-focus-within:text-primary transition-colors">search</span>
+            <input name="q" className="bg-transparent border-none focus:ring-0 text-xs w-full font-medium" placeholder="Search signals..." type="text" />
+          </div>
+        </form>
+      </nav>
+
+      <main className="flex-1 pt-[81px] pb-32">
+        <section className="px-12 max-w-5xl mx-auto">
+
+          {/* Hero */}
+          <div className={`text-center transition-all duration-700 ${result ? "mb-16 pt-10" : "mb-32 pt-24"} animate-fade-in-up`}>
+            <span className="text-[10px] font-black uppercase tracking-[0.4em] text-primary mb-8 block opacity-60">Insight Generation Engine</span>
+            <h1 className="text-7xl md:text-8xl font-black tracking-tighter leading-[0.9] mb-12 text-on-surface">
+              What are you <br />
+              <span className="font-serif italic font-light text-primary">building?</span>
+            </h1>
+
+            {/* Input Container */}
+            <div className="max-w-2xl mx-auto relative group">
+              <div className="absolute inset-0 bg-primary/5 blur-3xl rounded-full -z-10 opacity-0 group-focus-within:opacity-100 transition-opacity duration-500" />
+              <form onSubmit={handleValidate} className="relative flex items-center bg-white border border-outline rounded-3xl p-3 pr-4 shadow-[0_10px_40px_-12px_rgba(0,0,0,0.08)] focus-within:border-primary/50 transition-all duration-300 ring-4 ring-transparent focus-within:ring-primary/5">
+                <input
+                  id="idea-input"
+                  value={idea}
+                  onChange={e => setIdea(e.target.value)}
+                  className="w-full bg-transparent border-none py-4 px-6 text-xl focus:ring-0 placeholder:text-secondary/40 font-light text-on-surface"
+                  placeholder="Describe your startup idea..."
+                  disabled={loading}
+                />
+                <button
+                  type="submit"
+                  disabled={loading || idea.trim().length < 10}
+                  className="bg-on-surface hover:bg-primary disabled:bg-surface-container-highest text-surface w-14 h-14 rounded-2xl flex items-center justify-center transition-all shadow-xl shadow-black/5 active:scale-95 shrink-0"
+                >
+                  {loading
+                    ? <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                    : <span className="material-symbols-outlined text-2xl font-black">arrow_forward</span>
+                  }
+                </button>
+              </form>
+              <div className="mt-8 flex justify-center gap-8 animate-fade-in-up stagger-1">
+                {["Growth Model", "Target Market", "Key Risks", "Competitive Edge"].map((feat, i) => (
+                  <div key={feat} className="flex items-center gap-2 opacity-40 hover:opacity-100 transition-opacity cursor-default">
+                    <span className="w-1.5 h-1.5 rounded-full bg-primary" />
+                    <span className="text-[9px] font-black text-secondary uppercase tracking-widest">{feat}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+
+          {/* Loading */}
+          {loading && (
+            <div className="flex flex-col items-center justify-center py-20 gap-6 animate-fade-in-up">
+               <div className="relative">
+                 <div className="w-16 h-16 border-4 border-primary/10 border-t-primary rounded-full animate-spin" />
+                 <div className="absolute inset-0 flex items-center justify-center">
+                    <span className="material-symbols-outlined text-primary text-xl animate-pulse">auto_awesome</span>
+                 </div>
+               </div>
+              <div className="text-center">
+                <p className="text-sm text-on-surface font-black uppercase tracking-widest animate-pulse">Synthesizing Market Intel</p>
+                <p className="text-[10px] text-secondary mt-1 font-bold uppercase tracking-widest opacity-60">This typically takes 20 seconds</p>
+              </div>
+            </div>
+          )}
+
+          {/* Error */}
+          {error && !loading && (
+            <div className="max-w-2xl mx-auto bg-red-50 border border-red-100 rounded-2xl px-6 py-4 flex items-center gap-4 animate-fade-in-up">
+              <span className="material-symbols-outlined text-red-500">error_outline</span>
+              <p className="text-sm text-red-800 font-bold">{error}</p>
+              <button onClick={() => setError(null)} className="ml-auto text-[10px] font-black uppercase tracking-widest text-red-400 hover:text-red-600 transition-colors">Dismiss</button>
+            </div>
+          )}
+
+          {/* Results */}
+          {result && !loading && verdictStyle && (
+            <div className="space-y-8 animate-fade-in-up">
+
+              {/* Verdict + Score */}
+              <div className={`rounded-3xl p-10 border-2 magazine-shadow flex flex-col md:flex-row items-center gap-10 ${verdictStyle.bg} ${verdictStyle.border}`}>
+                <div className="flex-1">
+                  <p className="text-[10px] font-black uppercase tracking-widest text-secondary/60 mb-4">AI Validation Verdict</p>
+                  <div className="flex items-center gap-4 mb-4">
+                    <div className={`w-14 h-14 rounded-2xl ${verdictStyle.bg} border-2 ${verdictStyle.border} flex items-center justify-center shadow-sm`}>
+                       <span className={`material-symbols-outlined text-3xl ${verdictStyle.text}`} style={{ fontVariationSettings: "'FILL' 1" }}>{verdictStyle.icon}</span>
+                    </div>
+                    <h2 className={`text-5xl font-black tracking-tighter ${verdictStyle.text}`}>{result.verdict}</h2>
+                  </div>
+                  <p className="text-lg text-on-surface font-light leading-relaxed font-serif italic italic">&quot;{result.uniqueAngle}&quot;</p>
+                </div>
+                
+                <div className="text-center shrink-0 w-full md:w-auto border-t md:border-t-0 md:border-l border-black/5 pt-8 md:pt-0 md:pl-10">
+                  <div className="relative inline-block">
+                    <span className={`text-8xl font-black ${verdictStyle.text} tracking-tighter`}>{result.score}</span>
+                    <span className={`text-xl font-black ${verdictStyle.text} absolute -top-1 -right-4`}>%</span>
+                  </div>
+                  <p className="text-[10px] font-black uppercase tracking-[0.2em] text-secondary mt-2">Demand Index</p>
+                  <div className="w-32 h-2 bg-white/60 rounded-full mt-4 overflow-hidden mx-auto shadow-inner">
+                    <div className="h-full bg-current rounded-full transition-all duration-1000 ease-out" style={{ width: `${result.score}%`, color: result.score > 70 ? '#10b981' : (result.score > 40 ? '#f59e0b' : '#ef4444') }} />
+                  </div>
+                </div>
+              </div>
+
+              {/* Grid details */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+
+                 {[
+                   { label: "Market Dynamics", val: result.marketSize, icon: "analytics", color: "text-blue-500" },
+                   { label: "High-Intent Persona", val: result.targetCustomer, icon: "target", color: "text-purple-500" }
+                 ].map((item, i) => (
+                   <div key={i} className="bg-white p-8 rounded-3xl border border-outline shadow-sm hover:border-primary/20 transition-all stagger-1 animate-fade-in-up" style={{ animationDelay: `${i * 0.1}s` }}>
+                     <div className="flex items-center gap-3 mb-6">
+                       <span className={`material-symbols-outlined ${item.color} text-2xl`}>{item.icon}</span>
+                       <p className="text-[10px] font-black uppercase tracking-[0.3em] text-secondary/40">{item.label}</p>
+                     </div>
+                     <p className="text-[15px] text-on-surface font-medium leading-relaxed">{item.val}</p>
+                   </div>
+                 ))}
+
+                {/* Competitors */}
+                <div className="bg-white p-8 rounded-3xl border border-outline shadow-sm hover:border-primary/20 transition-all animate-fade-in-up stagger-2">
+                  <div className="flex items-center gap-3 mb-6">
+                    <span className="material-symbols-outlined text-amber-500 text-2xl">swords</span>
+                    <p className="text-[10px] font-black uppercase tracking-[0.3em] text-secondary/40">Competitor Landscape</p>
+                  </div>
+                  <div className="flex flex-wrap gap-2.5">
+                    {result.competitors.map((c, i) => (
+                      <span key={i} className="px-4 py-1.5 bg-surface-container rounded-xl text-[10px] font-black text-secondary tracking-widest uppercase hover:text-primary transition-colors cursor-default border border-outline-variant">{c}</span>
+                    ))}
+                    {result.competitors.length === 0 && <span className="text-xs italic text-secondary/40 uppercase font-black">Open Market Field</span>}
+                  </div>
+                </div>
+
+                {/* Key Risks */}
+                <div className="bg-white p-8 rounded-3xl border border-outline shadow-sm hover:border-primary/20 transition-all animate-fade-in-up stagger-3">
+                  <div className="flex items-center gap-3 mb-6">
+                    <span className="material-symbols-outlined text-red-500 text-2xl">distance</span>
+                    <p className="text-[10px] font-black uppercase tracking-[0.3em] text-secondary/40">Critical Risk Profile</p>
+                  </div>
+                  <ul className="space-y-4">
+                    {result.keyRisks.map((r, i) => (
+                      <li key={i} className="flex items-start gap-3">
+                        <span className="w-1.5 h-1.5 rounded-full bg-red-400 mt-1.5 shrink-0 shadow-sm" />
+                        <span className="text-sm text-on-surface font-light leading-snug">{r}</span>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              </div>
+
+              {/* Roadmap */}
+              <div className="bg-on-surface text-surface rounded-3xl p-10 flex flex-col md:flex-row items-center gap-10 shadow-2xl animate-fade-in-up stagger-4">
+                <div className="w-16 h-16 rounded-2xl bg-white/10 flex items-center justify-center shrink-0">
+                   <span className="material-symbols-outlined text-primary text-3xl">map</span>
+                </div>
+                <div className="flex-1">
+                  <p className="text-[10px] font-black uppercase tracking-[0.5em] text-primary mb-2">Strategy: Phase 01</p>
+                  <p className="text-xl text-surface font-black tracking-tight leading-tight">{result.firstStep}</p>
+                </div>
+                <button 
+                  onClick={() => { setResult(null); setIdea(""); setError(null); }}
+                  className="px-8 py-3 bg-white text-on-surface rounded-2xl font-black text-xs uppercase tracking-widest hover:bg-primary hover:text-white transition-all active:scale-95 shadow-xl shadow-white/5 whitespace-nowrap"
+                >
+                  Start New Analysis
+                </button>
+              </div>
+
+            </div>
+          )}
+        </section>
+      </main>
     </div>
   );
 }

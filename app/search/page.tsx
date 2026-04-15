@@ -1,190 +1,232 @@
+"use client";
+
 import Link from "next/link";
+import { useEffect, useState, useCallback } from "react";
+import { useSearchParams } from "next/navigation";
 
-export default function Page() {
+interface Problem {
+  id: string;
+  problem: string;
+  industry: string;
+  summary: string;
+  orbitScore: number;
+  scoreLabel: string;
+  subreddit: string;
+  upvotes: number;
+  url: string;
+}
+
+// Skeleton and styling helpers
+function SkeletonCard({ index }: { index: number }) {
   return (
-    <div className="text-on-surface flex flex-col">
+    <div 
+      className="bg-white rounded-xl border border-outline-variant p-4 flex items-center gap-6 animate-shimmer opacity-60"
+      style={{ animationDelay: `${index * 0.05}s` }}
+    >
+      <div className="w-12 h-12 rounded-lg bg-surface-container shrink-0" />
+      <div className="flex-1 space-y-2">
+        <div className="h-2 w-24 bg-surface-container rounded" />
+        <div className="h-4 w-full bg-surface-container rounded" />
+      </div>
+      <div className="w-16 h-4 bg-surface-container rounded ml-auto" />
+    </div>
+  );
+}
+
+function ScoreBadge({ score, label }: { score: number; label: string }) {
+  const color = label === "High Opportunity" ? "text-primary" : label === "Medium" ? "text-amber-500" : "text-slate-400";
+  return (
+    <div className="w-14 h-14 rounded-2xl bg-surface-container flex flex-col items-center justify-center shrink-0 border border-outline-variant group-hover:bg-primary/5 transition-colors">
+      <span className={`text-lg font-black ${color}`}>{score}</span>
+      <span className="text-[7px] font-black text-secondary/40 uppercase tracking-tighter">ORBIT</span>
+    </div>
+  );
+}
+
+export default function SearchPage() {
+  const searchParams = useSearchParams();
+  const initialQ = searchParams.get("q") || "";
+
+  const [query, setQuery] = useState(initialQ);
+  const [inputValue, setInputValue] = useState(initialQ);
+  const [results, setResults] = useState<Problem[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [searched, setSearched] = useState(false);
+
+  const doSearch = useCallback(async (q: string) => {
+    if (!q.trim()) { setResults([]); setSearched(false); return; }
+    setLoading(true);
+    setSearched(true);
+    try {
+      const res = await fetch(`/api/search?q=${encodeURIComponent(q)}`, { cache: "no-store" });
+      const json = await res.json();
+      setResults(json.success ? json.data : []);
+    } catch {
+      setResults([]);
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  // Search on load if q param is present
+  useEffect(() => {
+    if (initialQ) doSearch(initialQ);
+  }, [initialQ, doSearch]);
+
+  // Debounced real-time search
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      if (inputValue !== query) {
+        setQuery(inputValue);
+        doSearch(inputValue);
+      }
+    }, 400);
+    return () => clearTimeout(timer);
+  }, [inputValue, query, doSearch]);
+
+  function handleSubmit(e: React.FormEvent) {
+    e.preventDefault();
+    setQuery(inputValue);
+    doSearch(inputValue);
+  }
+
+  return (
+    <div className="text-on-surface flex flex-col min-h-screen bg-background">
       {/* eslint-disable @next/next/no-img-element */}
-      <nav className="fixed top-0 w-full z-50 bg-white/70 backdrop-blur-xl flex justify-between items-center px-6 py-3 border-b border-outline shadow-sm">
-<div className="flex items-center gap-8">
-<div className="flex items-center gap-2"><img src="/orbit-logo.png" alt="Orbit Logo" className="w-6 h-6 object-contain" /><span className="text-xl font-black tracking-tighter text-slate-900">Orbit</span></div>
-<div className="hidden md:flex items-center gap-6">
-<Link className="text-slate-500 text-sm font-medium border-b-2 border-transparent font-['Inter'] hover:text-[#FF7F6A] transition-colors duration-300" href="/dashboard">Feed</Link>
-<Link className="text-slate-500 text-sm font-medium font-['Inter'] hover:text-[#FF7F6A] transition-colors duration-300" href="/validate">Validate Idea</Link>
-</div>
-</div>
-<div className="flex-1 max-w-xl px-8 relative group">
-<form action="/search" className="flex items-center bg-white rounded-xl px-4 py-1.5 gap-3 transition-all ring-2 ring-primary/40 shadow-[0_0_15px_rgba(255,127,106,0.1)]">
-<span className="material-symbols-outlined text-primary text-xl">search</span>
-<input name="q" className="bg-transparent border-none focus:ring-0 text-xs w-full font-bold text-on-surface" defaultValue="Fintech" type="text"/>
-</form>
-</div>
-<div className="flex items-center gap-4">
-<button className="bg-on-surface text-surface px-4 py-2 rounded-lg font-bold text-[9px] uppercase tracking-[0.2em] hover:scale-105 active:scale-95 duration-200">
-            New Discovery
-        </button>
-<button className="material-symbols-outlined text-on-surface-variant p-1.5 hover:bg-surface-container rounded-full transition-colors">notifications</button>
-<div className="w-8 h-8 rounded-full bg-surface-container-highest flex items-center justify-center overflow-hidden border border-outline">
-<img alt="Profile" src="https://lh3.googleusercontent.com/aida-public/AB6AXuBzEtQ0zxP4hscHxfuquKtAwx0wIub6vket9h8rnmNb5R-pcR6zuJnqZoJUagNfmPYpzqxQNiBgzvz2mpKjh0IkKj4BobbooDh4706GG5Ezg742LqEumCdsdaDR4y3Arw64JNxDBkMymRhVLqNEUmGWShf6eWytN0Gu6aryva7EwonxVy74Hs_a6eHjh98Omre2qpqW12024Wpx_JNnJvoarNANd4xMR6w_4h3_m4cBZFKu38FwQYd3OXR5JtqNrQvfYkIi59sNKQU5"/>
-</div>
-</div>
-</nav>
-<div className="flex flex-1 pt-[61px] overflow-hidden max-w-full">
-<aside className="w-[320px] bg-white border-r border-outline flex flex-col p-8 shrink-0 overflow-y-auto custom-scrollbar">
-<div className="sticky top-0 bg-white pb-6 z-10">
-<h1 className="text-4xl font-black tracking-tighter leading-none mb-2">Decision <span className="italic font-normal text-primary font-serif">Engine</span></h1>
-<p className="text-on-surface-variant text-xs font-light leading-relaxed">High-conviction market gaps algorithmically curated.</p>
-</div>
-<div className="mt-8 space-y-8">
-<div>
-<span className="text-[10px] font-bold tracking-[0.3em] uppercase text-secondary block mb-4">Categories</span>
-<div className="flex flex-col gap-1">
-<button className="flex items-center justify-between w-full px-3 py-2 rounded-lg hover:bg-surface-container text-xs font-medium text-on-surface-variant transition-colors">
-<span>All Opportunities</span>
-<span className="text-[10px]">42</span>
-</button>
-<button className="flex items-center justify-between w-full px-3 py-2 rounded-lg bg-primary/10 text-primary text-xs font-bold transition-colors">
-<span>Fintech</span>
-<span className="bg-primary/20 px-1.5 py-0.5 rounded text-[10px] text-primary">12</span>
-</button>
-<button className="flex items-center justify-between w-full px-3 py-2 rounded-lg hover:bg-surface-container text-xs font-medium text-on-surface-variant transition-colors">
-<span>SaaS</span>
-<span className="text-[10px]">8</span>
-</button>
-<button className="flex items-center justify-between w-full px-3 py-2 rounded-lg hover:bg-surface-container text-xs font-medium text-on-surface-variant transition-colors">
-<span>Health</span>
-<span className="text-[10px]">15</span>
-</button>
-<button className="flex items-center justify-between w-full px-3 py-2 rounded-lg hover:bg-surface-container text-xs font-medium text-on-surface-variant transition-colors">
-<span>Logistics</span>
-<span className="text-[10px]">7</span>
-</button>
-</div>
-</div>
-<div className="pt-8 mt-auto border-t border-outline">
-<div className="bg-primary/5 rounded-2xl p-4 border border-primary/10">
-<p className="text-[10px] font-bold text-primary uppercase tracking-widest mb-2">Pro Feature</p>
-<p className="text-xs leading-relaxed text-on-surface-variant mb-4 font-medium">Export raw signal data for custom validation models.</p>
-<button className="w-full py-2 bg-primary text-white rounded-lg text-[10px] font-bold uppercase tracking-widest">Upgrade to Analyst</button>
-</div>
-</div>
-</div>
-</aside>
-<main className="flex-1 overflow-y-auto custom-scrollbar bg-surface px-8 py-8 min-h-screen">
-    <div className="mb-8 flex items-end justify-between">
-        <div>
-            <h2 className="text-3xl font-black tracking-tight">Search Results</h2>
-            <p className="text-sm text-on-surface-variant font-medium mt-1">Showing 12 opportunities for <span className="text-primary italic font-serif">"Fintech"</span></p>
-        </div>
-        <div className="flex items-center gap-2">
-            <span className="text-[10px] font-bold text-secondary uppercase mr-2">Sort by</span>
-            <select className="bg-white border border-outline rounded-lg text-[10px] font-bold uppercase tracking-widest focus:ring-primary py-2 px-4 shadow-sm outline-none">
-            <option>Orbit Score</option>
-            <option>Match Rating</option>
-            <option>Newest</option>
-            </select>
-        </div>
-    </div>
-
-    {/* Search result cards */}
-    <div className="space-y-3">
-        {/* Item 1 */}
-        <div className="bg-white rounded-xl border border-outline hover:border-primary/30 p-4 transition-all group flex items-center gap-6 shadow-sm">
-            <div className="w-12 h-12 rounded-lg bg-surface-container flex flex-col items-center justify-center shrink-0 border border-outline-variant">
-                <span className="text-sm font-black text-on-surface">88</span>
-                <span className="text-[7px] font-bold text-secondary uppercase">Orbit</span>
-            </div>
-            <div className="flex-1">
-                <div className="flex items-center gap-3 mb-1">
-                <span className="text-[9px] font-bold tracking-[0.2em] uppercase text-secondary">Fintech</span>
-                <span className="w-1 h-1 rounded-full bg-outline-variant"></span>
-                <span className="text-[9px] font-medium text-emerald-600">Very High Confidence (94%)</span>
-                </div>
-                <h4 className="text-sm font-bold text-on-surface leading-tight group-hover:text-primary transition-colors duration-200">Automated reconciliation for cross-border B2B payouts</h4>
-            </div>
-            <div className="hidden xl:block max-w-sm">
-                <p className="text-[11px] text-on-surface-variant line-clamp-1 italic">"Painful FX spread and delay reconciliation across 14 currencies."</p>
-            </div>
-            <div className="flex items-center gap-4 ml-auto">
-                <button className="material-symbols-outlined text-secondary text-lg hover:text-primary transition-colors">bookmark</button>
-                <button className="text-[10px] font-bold uppercase text-primary border-b border-primary/20 hover:border-primary transition-all">Build</button>
-                <Link href="/problem/1" className="text-[10px] font-bold uppercase text-on-surface-variant hover:text-on-surface transition-all">Details</Link>
-            </div>
+      <nav className="fixed top-0 w-full z-50 bg-white/80 backdrop-blur-xl flex justify-between items-center px-6 py-3 border-b border-outline shadow-sm transition-all">
+        <div className="flex items-center gap-8">
+          <Link href="/dashboard" className="flex items-center gap-2 group">
+            <img src="/orbit-logo.png" alt="Orbit Logo" className="w-6 h-6 object-contain group-hover:rotate-12 transition-transform duration-300" />
+            <span className="text-xl font-black tracking-tighter text-slate-900 group-hover:text-primary transition-colors">Orbit</span>
+          </Link>
+          <div className="hidden md:flex items-center gap-6">
+            <Link className="text-slate-500 text-sm font-medium font-['Inter'] hover:text-primary transition-colors" href="/dashboard">Feed</Link>
+            <Link className="text-slate-500 text-sm font-medium font-['Inter'] hover:text-primary transition-colors" href="/validate">Validate Idea</Link>
+          </div>
         </div>
 
-        {/* Item 2 */}
-        <div className="bg-white rounded-xl border border-outline hover:border-primary/30 p-4 transition-all group flex items-center gap-6 shadow-sm">
-            <div className="w-12 h-12 rounded-lg bg-surface-container flex flex-col items-center justify-center shrink-0 border border-outline-variant">
-                <span className="text-sm font-black text-on-surface">76</span>
-                <span className="text-[7px] font-bold text-secondary uppercase">Orbit</span>
-            </div>
-            <div className="flex-1">
-                <div className="flex items-center gap-3 mb-1">
-                <span className="text-[9px] font-bold tracking-[0.2em] uppercase text-secondary">Fintech</span>
-                <span className="w-1 h-1 rounded-full bg-outline-variant"></span>
-                <span className="text-[9px] font-medium text-emerald-600">High Confidence (82%)</span>
-                </div>
-                <h4 className="text-sm font-bold text-on-surface leading-tight group-hover:text-primary transition-colors duration-200">Fraud dispute API for emerging market neobanks</h4>
-            </div>
-            <div className="hidden xl:block max-w-sm">
-                <p className="text-[11px] text-on-surface-variant line-clamp-1 italic">"Manual dispute resolution takes 45 days, causing 12% churn."</p>
-            </div>
-            <div className="flex items-center gap-4 ml-auto">
-                <button className="material-symbols-outlined text-secondary text-lg hover:text-primary transition-colors">bookmark</button>
-                <button className="text-[10px] font-bold uppercase text-primary border-b border-primary/20 hover:border-primary transition-all">Build</button>
-                <Link href="/problem/1" className="text-[10px] font-bold uppercase text-on-surface-variant hover:text-on-surface transition-all">Details</Link>
-            </div>
+        {/* Active search bar */}
+        <div className="flex-1 max-w-xl px-8">
+          <form onSubmit={handleSubmit} className="flex items-center bg-white rounded-2xl px-4 py-2 gap-3 ring-2 ring-primary/10 border border-outline focus-within:ring-primary/30 transition-all shadow-sm group">
+            <span className="material-symbols-outlined text-on-surface-variant text-xl group-focus-within:text-primary transition-colors">search</span>
+            <input
+              id="search-input"
+              name="q"
+              value={inputValue}
+              onChange={e => setInputValue(e.target.value)}
+              className="bg-transparent border-none focus:ring-0 text-xs w-full font-bold text-on-surface"
+              placeholder="Search problems (e.g. Fintech, SaaS, payments...)"
+              autoFocus
+              type="text"
+            />
+            {inputValue && (
+              <button type="button" onClick={() => { setInputValue(""); setQuery(""); setResults([]); setSearched(false); }}
+                className="material-symbols-outlined text-secondary text-sm hover:text-primary p-1 rounded-full hover:bg-surface-container transition-all">close</button>
+            )}
+          </form>
         </div>
-        
-        {/* Item 3 */}
-        <div className="bg-white rounded-xl border border-outline hover:border-primary/30 p-4 transition-all group flex items-center gap-6 shadow-sm">
-            <div className="w-12 h-12 rounded-lg bg-surface-container flex flex-col items-center justify-center shrink-0 border border-outline-variant">
-                <span className="text-sm font-black text-on-surface">71</span>
-                <span className="text-[7px] font-bold text-secondary uppercase">Orbit</span>
-            </div>
-            <div className="flex-1">
-                <div className="flex items-center gap-3 mb-1">
-                <span className="text-[9px] font-bold tracking-[0.2em] uppercase text-secondary">Fintech</span>
-                <span className="w-1 h-1 rounded-full bg-outline-variant"></span>
-                <span className="text-[9px] font-medium text-amber-600">Moderate (68%)</span>
-                </div>
-                <h4 className="text-sm font-bold text-on-surface leading-tight group-hover:text-primary transition-colors duration-200">Embeddable payroll advances for gig-economy platforms</h4>
-            </div>
-            <div className="hidden xl:block max-w-sm">
-                <p className="text-[11px] text-on-surface-variant line-clamp-1 italic">"Contractors churning because API providers take 2 days to clear."</p>
-            </div>
-            <div className="flex items-center gap-4 ml-auto">
-                <button className="material-symbols-outlined text-secondary text-lg hover:text-primary transition-colors">bookmark</button>
-                <button className="text-[10px] font-bold uppercase text-primary border-b border-primary/20 hover:border-primary transition-all">Build</button>
-                <Link href="/problem/1" className="text-[10px] font-bold uppercase text-on-surface-variant hover:text-on-surface transition-all">Details</Link>
-            </div>
+
+        <div className="flex items-center gap-4">
+          <Link href="/dashboard" className="bg-on-surface text-surface px-5 py-2.5 rounded-xl font-bold text-[10px] uppercase tracking-[0.2em] hover:bg-primary transition-all active:scale-95 shadow-sm">
+            Exit Search
+          </Link>
         </div>
-        
-        {/* Item 4 */}
-        <div className="bg-white rounded-xl border border-outline hover:border-primary/30 p-4 transition-all group flex items-center gap-6 shadow-sm">
-            <div className="w-12 h-12 rounded-lg bg-surface-container flex flex-col items-center justify-center shrink-0 border border-outline-variant">
-                <span className="text-sm font-black text-on-surface">65</span>
-                <span className="text-[7px] font-bold text-secondary uppercase">Orbit</span>
+      </nav>
+
+      <main className="flex-1 pt-[81px] pb-20 px-8 max-w-4xl mx-auto w-full">
+          {/* Header */}
+          <div className="mb-10 animate-fade-in-up">
+            {searched ? (
+              <div>
+                <h1 className="text-3xl font-black tracking-tight leading-none mb-2">Search results</h1>
+                <p className="text-xs text-secondary font-bold uppercase tracking-widest opacity-60">
+                   {loading ? "Searching vault..." : `Found ${results.length} validated gaps`}
+                </p>
+              </div>
+            ) : (
+              <div>
+                <h1 className="text-3xl font-black tracking-tighter leading-none mb-2 text-on-surface">Decision <span className="italic font-normal text-primary font-serif">Cloud</span></h1>
+                <p className="text-xs text-secondary font-bold uppercase tracking-widest opacity-60">Real-time market gap extraction from live social signals.</p>
+              </div>
+            )}
+          </div>
+
+          {/* Loading */}
+          {loading && (
+            <div className="space-y-4">
+              {[...Array(5)].map((_, i) => <SkeletonCard key={i} index={i} />)}
             </div>
-            <div className="flex-1">
-                <div className="flex items-center gap-3 mb-1">
-                <span className="text-[9px] font-bold tracking-[0.2em] uppercase text-secondary">Fintech</span>
-                <span className="w-1 h-1 rounded-full bg-outline-variant"></span>
-                <span className="text-[9px] font-medium text-amber-600">Moderate (61%)</span>
+          )}
+
+          {/* Empty initial state */}
+          {!loading && !searched && (
+            <div className="flex flex-col items-center justify-center py-40 animate-fade-in-up">
+              <div className="w-20 h-20 bg-surface-container rounded-full flex items-center justify-center mb-6">
+                <span className="material-symbols-outlined text-4xl text-secondary/30">saved_search</span>
+              </div>
+              <h2 className="text-xl font-black mb-2 tracking-tight">Ready to scan the markets?</h2>
+              <p className="text-sm text-secondary/60 mb-10 max-w-xs text-center font-medium">Search across our database of high-urgency business problems.</p>
+              
+              <div className="flex gap-2 flex-wrap justify-center max-w-md">
+                {["Fintech", "SaaS", "payments", "freelance", "hiring", "real estate", "health"].map((hint, i) => (
+                  <button 
+                    key={hint} 
+                    onClick={() => { setInputValue(hint); setQuery(hint); doSearch(hint); }}
+                    className="px-4 py-2 bg-white border border-outline rounded-xl text-[10px] font-black uppercase tracking-widest text-secondary hover:text-primary hover:border-primary/40 hover:shadow-sm transition-all animate-fade-in-up"
+                    style={{ animationDelay: `${i * 0.05}s` }}
+                  >
+                    {hint}
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* No results */}
+          {!loading && searched && results.length === 0 && (
+            <div className="flex flex-col items-center justify-center py-40 animate-fade-in-up text-center">
+              <div className="w-20 h-20 bg-red-50 rounded-full flex items-center justify-center mb-6 text-red-400">
+                <span className="material-symbols-outlined text-4xl">search_off</span>
+              </div>
+              <h3 className="text-xl font-black mb-2">No matching signals</h3>
+              <p className="text-sm text-secondary font-medium italic">&quot;{query}&quot; didn't trigger any gaps in our database</p>
+            </div>
+          )}
+
+          {/* Results */}
+          {!loading && results.length > 0 && (
+            <div className="space-y-4">
+              {results.map((problem, idx) => (
+                <div 
+                  key={problem.id} 
+                  className="bg-white rounded-2xl border border-outline hover:border-primary/30 p-5 transition-all group flex items-center gap-6 shadow-sm hover:shadow-[0_8px_30px_-10px_rgba(0,0,0,0.05)] animate-fade-in-up"
+                  style={{ animationDelay: `${idx * 0.05}s` }}
+                >
+                  <ScoreBadge score={problem.orbitScore} label={problem.scoreLabel} />
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-3 mb-1.5 overflow-hidden">
+                      <span className="text-[9px] font-black tracking-[0.2em] uppercase text-primary bg-primary/5 px-2 py-0.5 rounded">{problem.industry}</span>
+                      <span className="w-1 h-1 rounded-full bg-outline-variant shrink-0" />
+                      <span className="text-[10px] font-bold text-secondary line-clamp-1">{problem.scoreLabel} ({problem.orbitScore}%)</span>
+                    </div>
+                    <h4 className="text-[15px] font-black text-on-surface leading-tight group-hover:text-primary transition-colors">
+                      {problem.problem}
+                    </h4>
+                  </div>
+                  <div className="hidden sm:block max-w-sm shrink-0 border-l border-outline-variant pl-4">
+                    <p className="text-[11px] text-secondary font-medium leading-relaxed italic font-serif line-clamp-1">&quot;{problem.summary}&quot;</p>
+                  </div>
+                  <div className="flex items-center gap-4 ml-auto shrink-0">
+                    <Link href={`/problem/${problem.id}`}
+                      className="bg-on-surface text-surface px-5 py-2.5 rounded-xl font-black text-[10px] tracking-widest uppercase hover:bg-primary transition-all active:scale-95 shadow-sm">
+                      Details
+                    </Link>
+                  </div>
                 </div>
-                <h4 className="text-sm font-bold text-on-surface leading-tight group-hover:text-primary transition-colors duration-200">Dynamic lending risk scoring for Shopify merchants</h4>
+              ))}
             </div>
-            <div className="hidden xl:block max-w-sm">
-                <p className="text-[11px] text-on-surface-variant line-clamp-1 italic">"Traditional credit bureaus fail to accurately score seasonal D2C brands."</p>
-            </div>
-            <div className="flex items-center gap-4 ml-auto">
-                <button className="material-symbols-outlined text-secondary text-lg hover:text-primary transition-colors">bookmark</button>
-                <button className="text-[10px] font-bold uppercase text-primary border-b border-primary/20 hover:border-primary transition-all">Build</button>
-                <Link href="/problem/1" className="text-[10px] font-bold uppercase text-on-surface-variant hover:text-on-surface transition-all">Details</Link>
-            </div>
-        </div>
-    </div>
-</main>
-</div>
+          )}
+      </main>
     </div>
   );
 }
