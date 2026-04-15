@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useEffect, useState, useRef } from "react";
 import { useSavedProblems } from "../hooks/useSavedProblems";
 import Navbar from "../components/Navbar";
+import ShareModal from "../components/ShareModal";
 
 // Type definition for a problem from the API
 interface Problem {
@@ -49,6 +50,7 @@ function SkeletonCard({ index }: { index: number }) {
 export default function Page() {
   const { savedProblems, toggleSave, isSaved } = useSavedProblems();
   const [problems, setProblems] = useState<Problem[]>([]);
+  const [shareProblem, setShareProblem] = useState<Problem | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [syncing, setSyncing] = useState(false);
@@ -350,6 +352,13 @@ export default function Page() {
 
                         <div className="flex items-center gap-3 ml-auto pl-4">
                           <button 
+                            onClick={() => setShareProblem(problem as any)}
+                            className="w-10 h-10 flex items-center justify-center rounded-xl bg-surface-container text-secondary hover:text-primary hover:bg-primary/10 transition-all group/share"
+                            title="I'm building this"
+                          >
+                            <span className="material-symbols-outlined text-lg group-hover/share:rotate-12 transition-transform">rocket_launch</span>
+                          </button>
+                          <button 
                             onClick={() => toggleSave(problem)}
                             className={`w-10 h-10 flex items-center justify-center rounded-xl transition-all ${
                               isSaved(problem.id) 
@@ -372,6 +381,11 @@ export default function Page() {
           </div>
         </main>
       </div>
+    <ShareModal 
+        problem={shareProblem} 
+        isOpen={!!shareProblem} 
+        onClose={() => setShareProblem(null)} 
+    />
     </div>
   );
 }

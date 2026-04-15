@@ -5,6 +5,7 @@ import { useEffect, useState, useCallback } from "react";
 import { useSearchParams } from "next/navigation";
 import { useSavedProblems } from "../hooks/useSavedProblems";
 import Navbar from "../components/Navbar";
+import ShareModal from "../components/ShareModal";
 
 interface Problem {
   id: string;
@@ -55,6 +56,7 @@ export default function SearchPage() {
   const [results, setResults] = useState<Problem[]>([]);
   const [loading, setLoading] = useState(false);
   const [searched, setSearched] = useState(false);
+  const [shareProblem, setShareProblem] = useState<any>(null);
 
   const doSearch = useCallback(async (q: string) => {
     if (!q.trim()) { setResults([]); setSearched(false); return; }
@@ -182,6 +184,13 @@ export default function SearchPage() {
                   </div>
                   <div className="flex items-center gap-3 ml-auto shrink-0">
                     <button 
+                      onClick={() => setShareProblem(problem as any)}
+                      className="w-10 h-10 flex items-center justify-center rounded-xl bg-surface-container text-secondary hover:text-primary hover:bg-primary/10 transition-all group/share"
+                      title="I'm building this"
+                    >
+                      <span className="material-symbols-outlined text-lg group-hover/share:rotate-12 transition-transform">rocket_launch</span>
+                    </button>
+                    <button 
                       onClick={() => toggleSave(problem)}
                       className={`w-10 h-10 flex items-center justify-center rounded-xl transition-all ${
                         isSaved(problem.id) 
@@ -203,6 +212,11 @@ export default function SearchPage() {
             </div>
           )}
       </main>
+      <ShareModal 
+        problem={shareProblem} 
+        isOpen={!!shareProblem} 
+        onClose={() => setShareProblem(null)} 
+      />
     </div>
   );
 }
