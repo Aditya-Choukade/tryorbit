@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useEffect, useState } from "react";
 import { useParams } from "next/navigation";
 import ShareModal from "@/app/components/ShareModal";
+import { useSavedProblems } from "@/app/hooks/useSavedProblems";
 
 interface ProblemDetail {
   id: string;
@@ -37,6 +38,8 @@ export default function Page() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [isShareOpen, setIsShareOpen] = useState(false);
+  
+  const { toggleSave, isSaved } = useSavedProblems();
 
   useEffect(() => {
     if (!id) return;
@@ -65,29 +68,61 @@ export default function Page() {
     <div className="selection:bg-primary selection:text-white">
       {/* eslint-disable @next/next/no-img-element */}
       {/* Top Navigation Bar */}
-      <nav className="fixed top-0 w-full z-50 bg-white/70 backdrop-blur-xl flex justify-between items-center px-8 py-4 border-b border-stone-200/50 transition-colors duration-300">
-        <div className="flex items-center gap-6">
-          <Link href="/dashboard" className="flex items-center gap-2 group active:scale-95 duration-200">
-            <span className="material-symbols-outlined text-stone-500 group-hover:text-primary">arrow_back</span>
-            <span className="font-inter tracking-tight font-black uppercase text-[10px] text-stone-400 group-hover:text-stone-600">Back to Feed</span>
+      <nav className="fixed top-0 w-full z-50 bg-white/80 backdrop-blur-xl flex items-center px-6 py-3 border-b border-outline shadow-[0_4px_30px_rgba(0,0,0,0.03)] transition-all">
+        {/* Left: Branding & Back Navigation */}
+        <div className="flex items-center gap-5 w-1/3">
+          <Link href="/dashboard" className="flex items-center gap-2 group">
+            <img src="/orbit-logo.png" alt="Orbit Logo" className="w-6 h-6 object-contain group-hover:rotate-12 transition-transform duration-300" />
+            <span className="hidden lg:block text-xl font-black tracking-tighter text-slate-900 group-hover:text-primary transition-colors">Orbit</span>
           </Link>
-          <div className="h-4 w-px bg-stone-200"></div>
-          {problem && (
-            <div className="flex items-center gap-2">
-              <span className="font-inter tracking-tight font-black uppercase text-[10px] text-orange-500">{problem.industry}</span>
-              <span className="text-stone-300 text-[10px]">•</span>
-              <span className="font-inter tracking-tight font-black uppercase text-[10px] text-stone-400">Source: {problem.source}</span>
-            </div>
+          <div className="h-5 w-px bg-outline hidden md:block"></div>
+          <Link href="/dashboard" className="hidden md:flex items-center gap-1.5 text-secondary hover:text-primary transition-colors group">
+            <span className="material-symbols-outlined text-sm group-hover:-translate-x-1 transition-transform">arrow_back</span>
+            <span className="font-['Inter'] text-[11px] font-bold tracking-wider uppercase">Back to Feed</span>
+          </Link>
+        </div>
+
+        {/* Center: Context Pill */}
+        <div className="flex-1 flex justify-center">
+          {problem ? (
+             <div className="flex items-center gap-3 bg-surface-container-lowest px-5 py-1.5 rounded-full border border-outline/60 shadow-inner">
+               <span className="text-[9px] font-black uppercase tracking-[0.2em] text-primary">{problem.industry}</span>
+               <div className="w-1 h-1 rounded-full bg-outline-variant"></div>
+               <span className="text-[9px] font-bold uppercase tracking-[0.2em] text-secondary flex items-center gap-1">
+                  <span className="material-symbols-outlined text-[11px]">dynamic_feed</span>
+                  {problem.source}
+               </span>
+             </div>
+          ) : (
+             <div className="h-7 w-40 bg-surface-container animate-pulse rounded-full"></div>
           )}
         </div>
-        <div className="flex items-center gap-2">
-          <img src="/orbit-logo.png" alt="Orbit Logo" className="w-6 h-6 object-contain" />
-          <div className="text-2xl font-black tracking-tighter text-stone-900">Orbit</div>
-        </div>
-        <div className="flex items-center gap-4">
-          <button className="material-symbols-outlined text-stone-500 hover:text-stone-900 transition-opacity active:scale-95 duration-200">bookmark</button>
+
+        {/* Right: Actions */}
+        <div className="flex items-center justify-end gap-3 w-1/3">
           {problem && (
-            <a href={problem.url} target="_blank" rel="noopener noreferrer" className="material-symbols-outlined text-stone-500 hover:text-stone-900 transition-opacity active:scale-95 duration-200">open_in_new</a>
+            <>
+              {/* Desktop Save Button */}
+              <button 
+                onClick={(e) => { e.preventDefault(); toggleSave(problem); }}
+                className="hidden md:flex items-center gap-2 bg-white hover:bg-surface-container-lowest px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest text-secondary hover:text-primary transition-colors border border-outline-variant shadow-sm active:scale-95"
+              >
+                <span className={`material-symbols-outlined text-[14px] ${isSaved(problem.id) ? 'fill-current text-primary' : ''}`} style={isSaved(problem.id) ? {fontVariationSettings: "'FILL' 1"} : {}}>bookmark</span>
+                {isSaved(problem.id) ? 'Saved' : 'Save'}
+              </button>
+              {/* Mobile Save Icon */}
+              <button 
+                onClick={(e) => { e.preventDefault(); toggleSave(problem); }}
+                className="flex md:hidden items-center justify-center w-9 h-9 bg-white hover:bg-surface-container-lowest rounded-xl text-secondary hover:text-primary transition-colors border border-outline-variant shadow-sm active:scale-95"
+              >
+                <span className={`material-symbols-outlined text-[16px] ${isSaved(problem.id) ? 'fill-current text-primary' : ''}`} style={isSaved(problem.id) ? {fontVariationSettings: "'FILL' 1"} : {}}>bookmark</span>
+              </button>
+              
+              {/* View Original External Link */}
+              <a href={problem.url} target="_blank" rel="noopener noreferrer" className="flex items-center justify-center w-9 h-9 bg-white hover:bg-surface-container-lowest rounded-xl text-secondary hover:text-primary transition-colors border border-outline-variant shadow-sm active:scale-95 group" title="View Source">
+                <span className="material-symbols-outlined text-[16px] group-hover:-translate-y-0.5 group-hover:translate-x-0.5 transition-transform">arrow_outward</span>
+              </a>
+            </>
           )}
         </div>
       </nav>

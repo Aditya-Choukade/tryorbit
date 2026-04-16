@@ -61,10 +61,11 @@ export async function GET(request: Request) {
   try {
     const { searchParams } = new URL(request.url);
     const limit    = searchParams.get('limit')    || '20';
+    const offset   = searchParams.get('offset')   || '0';
     const sort     = searchParams.get('sort')     || 'orbit_score';
     const industry = searchParams.get('industry') || '';
 
-    const backendParams = new URLSearchParams({ limit, sort });
+    const backendParams = new URLSearchParams({ limit, offset, sort });
     if (industry) backendParams.set('industry', industry);
 
     const backendUrl = `${BACKEND_URL}/api/problems?${backendParams}`;
@@ -85,10 +86,10 @@ export async function GET(request: Request) {
       return NextResponse.json({ ...data, fallback: false });
     }
 
-    // If DB returned zero results fall back to curated data
-    if (data.success && data.data?.length === 0) {
+    // If DB returned zero results fall back to curated data (only on first page)
+    if (data.success && data.data?.length === 0 && offset === '0') {
       console.warn('[Proxy] DB returned 0 results → serving fallback');
-      return NextResponse.json({ success: true, count: FALLBACK_PROBLEMS.length, data: FALLBACK_PROBLEMS, fallback: true });
+      return NextResponse.json({ success: true, count: FALLBACK_PROBLEMS.length, total: FALLBACK_PROBLEMS.length, hasMore: false, data: FALLBACK_PROBLEMS, fallback: true });
     }
 
     return NextResponse.json(data);

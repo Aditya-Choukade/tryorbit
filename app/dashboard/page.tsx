@@ -47,16 +47,22 @@ function SkeletonCard({ index }: { index: number }) {
   );
 }
 
+const PAGE_SIZE = 20;
+
 export default function Page() {
   const { savedProblems, toggleSave, isSaved } = useSavedProblems();
   const [problems, setProblems] = useState<Problem[]>([]);
   const [shareProblem, setShareProblem] = useState<Problem | null>(null);
   const [loading, setLoading] = useState(true);
+  const [loadingMore, setLoadingMore] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [syncing, setSyncing] = useState(false);
   const [isFallback, setIsFallback] = useState(false);
   const [sortBy, setSortBy] = useState<'orbit_score' | 'newest' | 'trend'>('orbit_score');
   const [industryFilter, setIndustryFilter] = useState<string | null>(null);
+  const [hasMore, setHasMore] = useState(false);
+  const [totalCount, setTotalCount] = useState(0);
+  const [offset, setOffset] = useState(0);
   
   // To avoid counts jumping while filtering
   const [categoryCounts, setCategoryCounts] = useState<Record<string, number>>({});
@@ -67,7 +73,7 @@ export default function Page() {
     if (isInitial) setLoading(true);
     setError(null);
     try {
-      const params = new URLSearchParams({ sort });
+      const params = new URLSearchParams({ sort, limit: String(PAGE_SIZE), offset: '0' });
       if (industry) params.set('industry', industry);
       const res = await fetch(`/api/problems?${params}`, { cache: "no-store" });
       const json = await res.json();
@@ -81,11 +87,14 @@ export default function Page() {
 
       setSyncing(false);
       setIsFallback(!!json.fallback);
+      setOffset(PAGE_SIZE);
+      setHasMore(!!json.hasMore);
+      setTotalCount(json.total || json.data?.length || 0);
 
       if (json.success && json.data.length > 0) {
         setProblems(json.data);
         
-        // Update counts once if we have all data (only when filter is null for accurate total sidebar)
+        // Update sidebar category counts only on unfiltered full fetch
         if (!industry) {
           const counts: Record<string, number> = {};
           json.data.forEach((p: Problem) => {
@@ -104,20 +113,94 @@ export default function Page() {
     }
   }
 
+  async function loadMore() {
+    if (loadingMore || !hasMore) return;
+    setLoadingMore(true);
+    try {
+      const params = new URLSearchParams({ sort: sortBy, limit: String(PAGE_SIZE), offset: String(offset) });
+      if (industryFilter) params.set('industry', industryFilter);
+      const res = await fetch(`/api/problems?${params}`, { cache: "no-store" });
+      const json = await res.json();
+      if (json.success && json.data.length > 0) {
+        setProblems(prev => {
+          // Deduplicate by ID — guards against non-deterministic DB ordering
+          // when rows with equal scores shift pages between paginated queries
+          const existingIds = new Set(prev.map((p: Problem) => p.id));
+          const newUnique = json.data.filter((p: Problem) => !existingIds.has(p.id));
+          return [...prev, ...newUnique];
+        });
+        setOffset(prev => prev + PAGE_SIZE);
+        setHasMore(!!json.hasMore);
+        setTotalCount(json.total || 0);
+      } else {
+        setHasMore(false);
+      }
+    } catch (err) {
+      console.error("Load more failed:", err);
+    } finally {
+      setLoadingMore(false);
+    }
+  }
+
   useEffect(() => {
-    // Scroll to top of main content area on filter change
+    // Scroll to top of main content area on filter/sort change
     containerRef.current?.scrollTo({ top: 0, behavior: 'smooth' });
+    setOffset(0);
+    setHasMore(false);
     fetchProblems(sortBy, industryFilter, problems.length === 0);
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [sortBy, industryFilter]);
 
-  // Manual sync trigger
+  // Manual sync trigger — calls /api/sync, then polls status until done, then refreshes feed
   async function triggerSync() {
+    if (syncing) return;
     setSyncing(true);
+    setError(null);
     try {
-      await fetch("/api/sync", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({}) });
-      setTimeout(() => window.location.reload(), 15000); 
-    } catch { setSyncing(false); }
+      const res = await fetch("/api/sync", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({}),
+      });
+
+      if (!res.ok) {
+        const errData = await res.json().catch(() => ({}));
+        throw new Error(errData.message || `Sync failed with status ${res.status}`);
+      }
+
+      // Poll sync status every 5s — stop after 3 minutes max
+      let attempts = 0;
+      const maxAttempts = 36; // 36 × 5s = 3 minutes
+
+      const pollStatus = async () => {
+        if (attempts >= maxAttempts) {
+          setSyncing(false);
+          setError("Sync is taking longer than expected. Check back in a minute.");
+          return;
+        }
+        attempts++;
+        try {
+          const statusRes = await fetch("/api/sync");
+          const statusData = await statusRes.json();
+          if (statusData.syncing) {
+            setTimeout(pollStatus, 5000);
+          } else {
+            // Sync done — refresh the feed silently
+            setSyncing(false);
+            await fetchProblems(sortBy, industryFilter, false);
+          }
+        } catch {
+          // Backend might be busy — keep polling
+          setTimeout(pollStatus, 5000);
+        }
+      };
+
+      setTimeout(pollStatus, 5000);
+    } catch (err) {
+      console.error("Sync error:", err);
+      setError(err instanceof Error ? err.message : "Failed to trigger sync. Is the backend running?");
+      setSyncing(false);
+    }
   }
 
   // Segmenting problems
@@ -307,7 +390,7 @@ export default function Page() {
                        Market Discovery Feed
                        {industryFilter && <span className="text-primary italic font-serif text-sm font-light">in {industryFilter}</span>}
                     </h3>
-                    <p className="text-[11px] font-medium text-secondary/60 uppercase tracking-widest mt-1">Found {problems.length} validated opportunities</p>
+                    <p className="text-[11px] font-medium text-secondary/60 uppercase tracking-widest mt-1">Showing {problems.length} of {totalCount} validated opportunities</p>
                   </div>
                   <div className="flex items-center gap-4">
                     <span className="text-[10px] font-black text-secondary/40 uppercase tracking-[0.2em]">Curation:</span>
@@ -387,6 +470,33 @@ export default function Page() {
                     ))
                   )}
                 </div>
+
+                {/* Load More Button */}
+                {hasMore && !loading && (
+                  <div className="flex justify-center pt-8 pb-4">
+                    <button
+                      onClick={loadMore}
+                      disabled={loadingMore}
+                      className="flex items-center gap-3 px-8 py-3 bg-white border border-outline rounded-xl text-[11px] font-black uppercase tracking-widest text-secondary hover:text-primary hover:border-primary/40 hover:bg-primary/5 transition-all active:scale-95 shadow-sm disabled:opacity-50"
+                    >
+                      {loadingMore ? (
+                        <>
+                          <div className="w-4 h-4 border-2 border-primary/20 border-t-primary rounded-full animate-spin" />
+                          Loading more...
+                        </>
+                      ) : (
+                        <>
+                          <span className="material-symbols-outlined text-[16px]">expand_more</span>
+                          Load more · {totalCount - problems.length} remaining
+                        </>
+                      )}
+                    </button>
+                  </div>
+                )}
+
+                {!hasMore && problems.length > PAGE_SIZE && (
+                  <p className="text-center text-[10px] font-bold text-secondary/30 uppercase tracking-widest pt-8 pb-4">All {totalCount} signals loaded</p>
+                )}
               </div>
             )}
           </div>
