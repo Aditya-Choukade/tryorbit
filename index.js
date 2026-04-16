@@ -107,16 +107,17 @@ async function syncRedditToDB(subreddits = DEFAULT_SUBREDDITS, limit = 5) {
 // ─────────────────────────────────────────────────────────────
 app.get('/api/problems', async (req, res) => {
     try {
-        const limit = Math.min(parseInt(req.query.limit) || 20, 50);
+        const limit  = Math.min(parseInt(req.query.limit)  || 20, 100);
+        const offset = Math.max(parseInt(req.query.offset) || 0,  0);
         const VALID_SORTS = ['orbit_score', 'newest', 'trend'];
         const sort = VALID_SORTS.includes(req.query.sort) ? req.query.sort : 'orbit_score';
         const industry = req.query.industry || null;
 
-        console.log(`[API] GET /api/problems (limit: ${limit}, sort: ${sort}, industry: ${industry || 'all'})`);
+        console.log(`[API] GET /api/problems (limit: ${limit}, offset: ${offset}, sort: ${sort}, industry: ${industry || 'all'})`);
 
-        const problems = await getProblems(limit, sort, industry);
+        const { rows, total } = await getProblems(limit, sort, industry, offset);
 
-        if (problems.length === 0) {
+        if (total === 0 && offset === 0) {
             // DB is empty — auto-trigger a sync in the background
             console.log('[API] DB empty — triggering background sync...');
             if (!isSyncing) {
@@ -127,13 +128,14 @@ app.get('/api/problems', async (req, res) => {
             return res.status(200).json({
                 success: true,
                 count: 0,
+                total: 0,
                 syncing: true,
                 message: 'Database is empty. Background sync started — check back in ~1 minute.',
                 data: [],
             });
         }
 
-        res.status(200).json({ success: true, count: problems.length, data: problems });
+        res.status(200).json({ success: true, count: rows.length, total, hasMore: offset + rows.length < total, data: rows });
     } catch (error) {
         console.error('[API] GET /api/problems error:', error.message);
         res.status(500).json({ success: false, message: 'Failed to fetch problems from database.', error: error.message });
@@ -248,7 +250,13 @@ Analyze and return:
 // ─────────────────────────────────────────────────────────────
 app.post('/api/sync', async (req, res) => {
     // 🔒 Security: Prevent unauthorized triggering of expensive AI operations
-    if (req.headers.authorization !== process.env.INTERNAL_CRON_SECRET) {
+    const cronSecret = (process.env.INTERNAL_CRON_SECRET || '').trim();
+    const authHeader = (req.headers.authorization || '').trim();
+
+    if (!cronSecret) {
+        console.warn('[Sync] ⚠️  INTERNAL_CRON_SECRET not set — sync endpoint is UNPROTECTED!');
+    } else if (authHeader !== cronSecret) {
+        console.warn(`[Sync] 🚫 Unauthorized sync attempt blocked (header: "${authHeader.substring(0, 20)}...")`);
         return res.status(401).json({ success: false, message: 'Unauthorized: Invalid cron secret' });
     }
 
