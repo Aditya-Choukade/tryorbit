@@ -5,7 +5,6 @@
 Orbit is an AI-powered platform that discovers real-world problems from the internet (starting with Reddit) and transforms them into structured, actionable startup opportunities.
 
 Instead of guessing startup ideas, Orbit helps users:
-
 * Discover real problems people are facing
 * Understand why those problems exist
 * Get AI-powered insights
@@ -13,270 +12,109 @@ Instead of guessing startup ideas, Orbit helps users:
 
 ---
 
-## 🎯 Problem Statement
+## 🛠️ Tech Stack
 
-People constantly share complaints and frustrations online (Reddit, Twitter, reviews), but:
-
-* These problems are scattered
-* Hard to analyze at scale
-* Not structured for founders
-
-As a result:
-
-* Founders struggle to find real problems
-* Businesses miss valuable insights
+* **Frontend:** Next.js 14, Tailwind CSS, TypeScript
+* **Backend:** Node.js, Express.js (REST API)
+* **AI Processing:** GitHub Models API (Llama/Gemini)
+* **Database:** Supabase (PostgreSQL)
 
 ---
 
-## 💡 Solution
+## 🚀 Getting Started (Local Setup)
 
-Orbit solves this by:
+This project is structured as a monorepo containing both the Next.js frontend and the Node.js backend.
 
-1. Collecting raw user complaints from platforms like Reddit
-2. Using AI to extract structured insights
-3. Presenting them as "problems worth building for"
-4. Enabling users to instantly act on them
+### 1. Clone the Repository
+```bash
+git clone https://github.com/Aditya-Choukade/tryorbit.git
+cd tryorbit
+```
 
----
+### 2. Database Setup (Supabase)
+1. Create a new project on [Supabase](https://supabase.com/).
+2. Navigate to the **SQL Editor** in your Supabase dashboard.
+3. Copy and run the SQL schema found in `backend/schema.sql` to create the `problems` table and its indices.
+4. Copy and run the SQL schema found in `backend/saved_problems.sql` to create the `saved_problems` bookmarks table.
 
-## ⚙️ Core Features (MVP)
+### 3. Backend Setup
+Open your terminal and navigate to the backend folder:
+```bash
+cd backend
+npm install
+```
 
-### 1. Orbit Feed (Dashboard)
+Create a `.env` file inside the `backend` directory:
+```bash
+touch .env
+```
+Populate the backend `.env` file:
+```env
+# Get from GitHub Developer Settings -> Personal Access Tokens
+GITHUB_TOKEN=your_github_pat_token
 
-* Displays a list of trending problems
-* Each problem includes:
+# Get from Supabase Dashboard -> Project Settings -> API
+SUPABASE_URL=your_supabase_project_url
+SUPABASE_KEY=your_supabase_service_role_key
 
-  * Title
-  * Industry
-  * Orbit Score
-  * Short summary
+# Used for frontend-backend authentication and ports
+PORT=8000
+INTERNAL_CRON_SECRET=orbit-cron-secret-2024-xK9mP
+```
 
----
+Start the backend server:
+```bash
+npm run dev
+```
+*(The backend will run on `http://localhost:8000`)*
 
-### 2. Problem Detail Page
+### 4. Frontend Setup
+Open a **new** terminal window and navigate to the project root (where the Next.js app lives):
+```bash
+# Assuming you are in the tryorbit root folder
+npm install
+```
 
-* Deep dive into a selected problem:
+Create a `.env.local` file inside the root directory:
+```bash
+touch .env.local
+```
+Populate the `.env.local` file:
+```env
+# Get from Supabase Dashboard -> Project Settings -> API
+NEXT_PUBLIC_SUPABASE_URL=your_supabase_project_url
+NEXT_PUBLIC_SUPABASE_ANON_KEY=your_supabase_anon_key
 
-  * Problem summary
-  * Real user complaints (from Reddit)
-  * Orbit Score
-  * AI-generated insights (why this problem exists)
-  * Opportunity insight (how to solve it)
+# System config
+BACKEND_URL=http://localhost:8000
+INTERNAL_CRON_SECRET=orbit-cron-secret-2024-xK9mP
+```
 
----
-
-### 3. Search
-
-* Search problems by:
-
-  * Keywords
-  * Industry
-* Returns filtered results using the same card UI
-
----
-
-### 4. Build With AI
-
-* Primary action button: "Build This"
-* Redirects user to external builder (e.g., Emergent)
-* Passes context:
-
-  * Problem
-  * Summary
-  * Industry
-
----
-
-### 5. Waitlist
-
-* Collect user emails for early access
-* Used for growth and launch
-
----
-
-## 🧠 AI System (Core Logic)
-
-### Input:
-
-Raw Reddit post (title + content)
-
-### Output:
-
-Structured object:
-
-{
-"problem": "Frequent UPI payment failures",
-"industry": "Fintech",
-"summary": "Users face repeated payment failures causing frustration",
-"tags": ["frustration", "urgent"],
-}
+Start the frontend development server:
+```bash
+npm run dev
+```
+*(The frontend will run on `http://localhost:3000`)*
 
 ---
 
-### AI Responsibilities:
+## 💡 How it Works
 
-* Detect if the post is a complaint/problem
-* Extract the core problem
-* Categorize into industry
-* Generate short summary
-* (Optional) Generate insights
-
----
-
-## 📊 Orbit Score (Basic Logic)
-
-A simple scoring system to estimate how valuable a problem is.
-
-### Inputs:
-
-* Frequency (how often similar problems appear)
-* Engagement (upvotes, comments)
-* Sentiment (negative intensity)
-
-### Example:
-
-Score = (mentions + engagement + sentiment weight)
-
-Output:
-
-* 0–50 → Low
-* 50–80 → Medium
-* 80+ → High Opportunity
+1. **Extraction**: The backend continuously scrapes business-related Subreddits (like `/r/SaaS`, `/r/Entrepreneur`, etc.)
+2. **AI Processing**: Raw complaints are piped through an LLM to extract the core pain point, target industry, root cause, and "Orbit Score".
+3. **Curation**: The fully structured JSON is saved deterministically to Supabase.
+4. **Validation**: Founders can browse the Orbit feed, filter by industry, read real user verbatims, save problems, and click "Build This" to immediately start creating a solution for an actively validated market gap.
 
 ---
 
-## 🏗️ System Architecture
+## 🤝 Contributing & Pushing Updates
 
-### Frontend:
+If you are developing both the frontend and backend, remember that they live in the same repository.
 
-* Next.js (React)
-* Tailwind CSS
-* Pages:
-
-  * Landing
-  * Dashboard (Feed)
-  * Problem Detail
-  * Search Results
-
----
-
-### Backend:
-
-* Node.js / Python API
-
-### Responsibilities:
-
-* Fetch Reddit data
-* Process data using AI
-* Store structured problems
-* Serve API to frontend
-
----
-
-### Database:
-
-Suggested: Supabase / PostgreSQL
-
-#### Table: problems
-
-* id
-* problem
-* summary
-* industry
-* source (Reddit)
-* score
-* tags
-* created_at
-
----
-
-### External Integrations:
-
-* Reddit API (data source)
-* OpenAI / Gemini (AI processing)
-* Emergent (Build This redirect)
-
----
-
-## 🔄 Data Flow
-
-1. Fetch Reddit posts
-2. Send to AI for processing
-3. Receive structured problem
-4. Store in database
-5. Display in dashboard
-6. User clicks → views details → clicks "Build This"
-
----
-
-## 🧩 User Flow
-
-1. User lands on Orbit
-2. Views trending problems
-3. Clicks a problem
-4. Understands insights
-5. Clicks "Build This"
-6. Starts building a product
-
----
-
-## 🎯 Product Philosophy
-
-Orbit is not just a problem listing tool.
-
-It is:
-→ A decision-making engine for founders
-
-Core loop:
-Discover → Understand → Build
-
----
-
-## 🚀 MVP Scope (Important)
-
-Keep it simple:
-
-* Only Reddit as source
-* Basic AI extraction
-* Simple scoring
-* Minimal UI
-
-Avoid:
-
-* Over-engineering
-* Complex analytics
-* Too many features
-
----
-
-## 📈 Future Scope (Not MVP)
-
-* Multi-platform data (Twitter, reviews)
-* Advanced scoring
-* Alerts
-* Idea validation
-* Community features
-
----
-
-## 🧠 Key Principle
-
-Focus on:
-
-* Real problems
-* Clear insights
-* Fast action
-
----
-
-## 🏁 Goal
-
-Help users answer one question:
-
-👉 "What should I build?"
-
----
-
-## 🔥 Tagline
-
-"Discover problems worth building for"
+**To push your updates to GitHub:**
+```bash
+# From the root directory (tryorbit)
+git add .
+git commit -m "feat: your update message"
+git push origin main
+```
