@@ -45,8 +45,8 @@ function rowToApiShape(row) {
  * @param {string|null} industry  - optional industry filter
  * @returns {Promise<Array>}
  */
-async function getProblems(limit = 20, sort = 'orbit_score', industry = null) {
-    let query = supabase.from('problems').select('*').limit(limit);
+async function getProblems(limit = 20, sort = 'orbit_score', industry = null, offset = 0) {
+    let query = supabase.from('problems').select('*', { count: 'exact' }).range(offset, offset + limit - 1);
 
     // Industry filter
     if (industry && industry !== 'all') {
@@ -54,22 +54,25 @@ async function getProblems(limit = 20, sort = 'orbit_score', industry = null) {
     }
 
     if (sort === 'newest') {
-        query = query.order('created_at', { ascending: false });
+        query = query.order('created_at', { ascending: false })
+                     .order('id', { ascending: false }); // stable tiebreaker
     } else if (sort === 'trend') {
         query = query.order('upvotes', { ascending: false })
-                     .order('comments', { ascending: false });
+                     .order('comments', { ascending: false })
+                     .order('id', { ascending: false }); // stable tiebreaker
     } else {
-        query = query.order('orbit_score', { ascending: false });
+        query = query.order('orbit_score', { ascending: false })
+                     .order('id', { ascending: false }); // stable tiebreaker
     }
 
-    const { data, error } = await query;
+    const { data, error, count } = await query;
 
     if (error) {
         console.error('[Supabase] getProblems error:', error.message);
         throw new Error(error.message);
     }
 
-    return (data || []).map(rowToApiShape);
+    return { rows: (data || []).map(rowToApiShape), total: count || 0 };
 }
 
 /**

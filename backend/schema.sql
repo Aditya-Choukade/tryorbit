@@ -23,6 +23,8 @@ CREATE TABLE IF NOT EXISTS problems (
 -- Index for faster sorting on the dashboard feed
 CREATE INDEX IF NOT EXISTS problems_created_at_idx ON problems (created_at DESC);
 CREATE INDEX IF NOT EXISTS problems_orbit_score_idx ON problems (orbit_score DESC);
+CREATE INDEX IF NOT EXISTS problems_url_idx ON problems (url);
+CREATE INDEX IF NOT EXISTS problems_industry_idx ON problems (industry);
 
 -- Prevent exact duplicate problems being inserted
 CREATE UNIQUE INDEX IF NOT EXISTS problems_problem_unique_idx ON problems (problem);
