@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import { useParams } from "next/navigation";
+import ShareModal from "@/app/components/ShareModal";
 
 interface ProblemDetail {
   id: string;
@@ -35,6 +36,7 @@ export default function Page() {
   const [problem, setProblem] = useState<ProblemDetail | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [isShareOpen, setIsShareOpen] = useState(false);
 
   useEffect(() => {
     if (!id) return;
@@ -219,15 +221,13 @@ export default function Page() {
                 <div className="p-6 rounded-xl bg-green-50 border border-green-100">
                   <p className="text-sm text-green-900 leading-relaxed">{problem.opportunity}</p>
                 </div>
-                <a
-                  href={`https://chat.openai.com/?q=${encodeURIComponent(`Help me build a startup to solve: ${problem.problem}`)}`}
-                  target="_blank"
-                  rel="noopener noreferrer"
+                <button
+                  onClick={() => setIsShareOpen(true)}
                   className="inline-flex items-center gap-2 bg-primary text-white px-6 py-3 rounded-full font-bold text-[10px] uppercase tracking-widest hover:scale-105 transition-all"
                 >
                   <span className="material-symbols-outlined text-sm">bolt</span>
                   Build This
-                </a>
+                </button>
               </section>
             )}
 
@@ -256,14 +256,12 @@ export default function Page() {
               <p className="text-sm font-light text-stone-300 leading-relaxed">
                 This problem has been validated by real users. Start building your solution today.
               </p>
-              <a
-                href={`https://chat.openai.com/?q=${encodeURIComponent(`Help me build a startup to solve: ${problem.problem}`)}`}
-                target="_blank"
-                rel="noopener noreferrer"
+              <button
+                onClick={() => setIsShareOpen(true)}
                 className="block w-full text-center bg-primary text-white px-6 py-3 rounded-lg font-bold text-[10px] uppercase tracking-widest hover:scale-105 transition-all"
               >
                 Build This →
-              </a>
+              </button>
             </div>
 
             {/* Back to feed */}
@@ -275,6 +273,13 @@ export default function Page() {
           </aside>
         </main>
       )}
+
+      {/* Share Modal Integration */}
+      <ShareModal 
+        problem={problem} 
+        isOpen={isShareOpen} 
+        onClose={() => setIsShareOpen(false)} 
+      />
     </div>
   );
 }

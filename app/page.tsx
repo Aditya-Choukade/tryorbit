@@ -148,12 +148,12 @@ export default function Page() {
 <p className="text-lg text-on-surface-variant leading-relaxed mb-8">
                                 One input. Total clarity. Drop a URL, a tweet, or a sentence. Orbit does the heavy lifting to find the commercial viability.
                             </p>
-<div className="relative">
-<input className="w-full p-6 bg-surface-container-high rounded-2xl border-none focus:ring-2 focus:ring-primary/20 transition-all text-lg placeholder:text-on-surface-variant/50" placeholder="Enter a problem or URL..." type="text"/>
-<Link href="/prepare" className="absolute right-4 top-1/2 -translate-y-1/2 bg-on-surface text-white p-3 rounded-xl inline-flex">
+<form action="/validate" method="GET" className="relative">
+<input name="idea" className="w-full p-6 bg-surface-container-high rounded-2xl border-none focus:ring-2 focus:ring-primary/20 transition-all text-lg placeholder:text-on-surface-variant/50" placeholder="Enter a problem or URL..." type="text" required/>
+<button type="submit" className="absolute right-4 top-1/2 -translate-y-1/2 bg-on-surface text-white p-3 rounded-xl inline-flex hover:scale-105 transition-transform">
 <span className="material-symbols-outlined" data-icon="arrow_forward">arrow_forward</span>
-</Link>
-</div>
+</button>
+</form>
 </div>
 <div className="bg-surface rounded-3xl p-8 border border-outline-variant">
 <div className="space-y-4">

@@ -9,7 +9,10 @@ export async function POST(request: Request) {
 
     const res = await fetch(`${BACKEND_URL}/api/sync`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: { 
+        'Content-Type': 'application/json',
+        'Authorization': process.env.INTERNAL_CRON_SECRET || ''
+      },
       body: JSON.stringify(body),
       signal: AbortSignal.timeout(8000),
     });

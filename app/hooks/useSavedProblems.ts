@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { createClient } from "@/app/utils/supabase/client";
 
 export interface SavedProblem {
@@ -125,7 +125,10 @@ export function useSavedProblems() {
     }
   };
 
-  const isSaved = (id: string) => savedProblems.some((p) => p.id === id);
+  // O(1) Set constraint for rapid render lookups
+  const savedIdsSet = useMemo(() => new Set(savedProblems.map(p => p.id)), [savedProblems]);
+
+  const isSaved = (id: string) => savedIdsSet.has(id);
 
   return { savedProblems, toggleSave, isSaved, user, loading };
 }

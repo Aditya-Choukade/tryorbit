@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import Navbar from "../components/Navbar";
 
 interface ValidationResult {
@@ -27,8 +27,17 @@ export default function ValidatePage() {
   const [result, setResult] = useState<ValidationResult | null>(null);
   const [error, setError] = useState<string | null>(null);
 
-  async function handleValidate(e: React.FormEvent) {
-    e.preventDefault();
+  useEffect(() => {
+    const searchParams = new URLSearchParams(window.location.search);
+    const passedIdea = searchParams.get('idea');
+    if (passedIdea) {
+      setIdea(passedIdea);
+      // Auto-trigger validation if desired, or let user click
+    }
+  }, []);
+
+  async function handleValidate(e?: React.FormEvent) {
+    if (e) e.preventDefault();
     if (!idea.trim() || idea.trim().length < 10) return;
     setLoading(true);
     setResult(null);

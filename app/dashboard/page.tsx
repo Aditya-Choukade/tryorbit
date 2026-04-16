@@ -174,7 +174,18 @@ export default function Page() {
             </div>
           </div>
           
-          <div className="pt-8 border-t border-outline">
+          <div className="pt-8 border-t border-outline space-y-4">
+            <button 
+              onClick={triggerSync}
+              disabled={syncing}
+              className="w-full py-3.5 bg-primary/10 text-primary rounded-xl text-[10px] font-black uppercase tracking-[0.2em] hover:bg-primary/20 transition-all flex items-center justify-center gap-2 group disabled:opacity-50"
+            >
+              <span className={`material-symbols-outlined text-sm ${syncing ? 'animate-spin' : 'group-hover:rotate-180 transition-transform duration-500'}`}>
+                {syncing ? 'sync' : 'auto_awesome'}
+              </span>
+              {syncing ? 'Syncing...' : 'Collect New Signals'}
+            </button>
+
             <div className="bg-primary/5 rounded-2xl p-5 border border-primary/10 group cursor-pointer hover:bg-primary/10 transition-colors">
               <p className="text-[10px] font-black text-primary uppercase tracking-[0.2em] mb-2 flex items-center gap-1.5">
                 <span className="material-symbols-outlined text-[12px]">auto_awesome</span> PRO ACCESS
