@@ -93,15 +93,6 @@ export default function Page() {
 
       if (json.success && json.data.length > 0) {
         setProblems(json.data);
-        
-        // Update sidebar category counts only on unfiltered full fetch
-        if (!industry) {
-          const counts: Record<string, number> = {};
-          json.data.forEach((p: Problem) => {
-            counts[p.industry] = (counts[p.industry] || 0) + 1;
-          });
-          setCategoryCounts(counts);
-        }
       } else {
         setProblems([]);
       }
@@ -110,6 +101,19 @@ export default function Page() {
       setError("Failed to load problems. Make sure the backend is running.");
     } finally {
       setLoading(false);
+    }
+  }
+
+  // Fetch real industry counts from the DB (full table, not just current page)
+  async function fetchIndustryCounts() {
+    try {
+      const res = await fetch('/api/problems/stats', { cache: 'no-store' });
+      const json = await res.json();
+      if (json.success && json.counts) {
+        setCategoryCounts(json.counts);
+      }
+    } catch (err) {
+      console.error('Failed to fetch industry counts:', err);
     }
   }
 
@@ -141,6 +145,12 @@ export default function Page() {
       setLoadingMore(false);
     }
   }
+
+  useEffect(() => {
+    // Fetch real industry counts once on mount (full DB, not paginated)
+    fetchIndustryCounts();
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   useEffect(() => {
     // Scroll to top of main content area on filter/sort change
