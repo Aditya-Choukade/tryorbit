@@ -21,7 +21,12 @@ export default function Page() {
 <header className="pt-48 pb-24 px-6 max-w-7xl mx-auto">
 <div className="grid lg:grid-cols-2 gap-16 items-center">
 <div className="space-y-8">
-<p className="text-[10px] font-bold tracking-[0.3em] uppercase text-primary">Intelligence Engine v1.0</p>
+<div className="flex flex-col gap-6 items-start">
+  <a href="https://www.producthunt.com/products/orbit-372?embed=true&utm_source=badge-featured&utm_medium=badge&utm_campaign=badge-orbit-2027" target="_blank" rel="noopener noreferrer" className="hover:scale-105 transition-transform duration-300">
+    <img alt="Orbit - Discover real problems worth building startups for. | Product Hunt" width="250" height="54" src="https://api.producthunt.com/widgets/embed-image/v1/featured.svg?post_id=1125111&theme=light&t=1776409081995" />
+  </a>
+  <p className="text-[10px] font-bold tracking-[0.3em] uppercase text-primary">Intelligence Engine v1.0</p>
+</div>
 <h1 className="text-6xl md:text-8xl font-black tracking-[-0.05em] leading-[0.9] text-on-surface">
                     Discover Problems <span className="serif-italic font-light text-primary">Worth</span> Building For.
                 </h1>
