@@ -4,7 +4,7 @@ const cors = require('cors');
 const { fetchRedditPosts, preparePostText } = require('./redditService');
 const { processWithAI, sleep } = require('./aiService');
 const { calculateOrbitScore } = require('./scoreService');
-const { getProblems, getProblemById, insertProblems, healthCheck, hasProblemWithUrl, searchProblems } = require('./supabaseService');
+const { getProblems, getIndustryCounts, getProblemById, insertProblems, healthCheck, hasProblemWithUrl, searchProblems } = require('./supabaseService');
 
 const app = express();
 const PORT = process.env.PORT || 8000;
@@ -139,6 +139,20 @@ app.get('/api/problems', async (req, res) => {
     } catch (error) {
         console.error('[API] GET /api/problems error:', error.message);
         res.status(500).json({ success: false, message: 'Failed to fetch problems from database.', error: error.message });
+    }
+});
+
+// ─────────────────────────────────────────────────────────────
+// Route 1b: GET /api/problems/stats  — industry counts for sidebar
+// IMPORTANT: must be declared BEFORE /api/problems/:id
+// ─────────────────────────────────────────────────────────────
+app.get('/api/problems/stats', async (req, res) => {
+    try {
+        const counts = await getIndustryCounts();
+        res.status(200).json({ success: true, counts });
+    } catch (error) {
+        console.error('[API] GET /api/problems/stats error:', error.message);
+        res.status(500).json({ success: false, counts: {} });
     }
 });
 

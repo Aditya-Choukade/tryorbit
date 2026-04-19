@@ -76,6 +76,29 @@ async function getProblems(limit = 20, sort = 'orbit_score', industry = null, of
 }
 
 /**
+ * Get the total count of problems grouped by industry.
+ * Used to populate sidebar filter counts accurately (ignores pagination).
+ * @returns {Promise<Record<string, number>>}
+ */
+async function getIndustryCounts() {
+    const { data, error } = await supabase
+        .from('problems')
+        .select('industry');
+
+    if (error) {
+        console.error('[Supabase] getIndustryCounts error:', error.message);
+        return {};
+    }
+
+    const counts = {};
+    for (const row of (data || [])) {
+        const ind = row.industry || 'Other';
+        counts[ind] = (counts[ind] || 0) + 1;
+    }
+    return counts;
+}
+
+/**
  * Full-text keyword search across problem, summary, and industry.
  * @param {string} query
  * @param {number} limit
@@ -218,4 +241,4 @@ async function hasProblemWithUrl(url) {
     return data && data.length > 0;
 }
 
-module.exports = { getProblems, getProblemById, insertProblem, insertProblems, healthCheck, hasProblemWithUrl, searchProblems };
+module.exports = { getProblems, getIndustryCounts, getProblemById, insertProblem, insertProblems, healthCheck, hasProblemWithUrl, searchProblems };
