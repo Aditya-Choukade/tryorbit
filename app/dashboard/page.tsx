@@ -64,8 +64,8 @@ export default function Page() {
   const [totalCount, setTotalCount] = useState(0);
   const [offset, setOffset] = useState(0);
   
-  // To avoid counts jumping while filtering
   const [categoryCounts, setCategoryCounts] = useState<Record<string, number>>({});
+  const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
 
   const containerRef = useRef<HTMLDivElement>(null);
 
@@ -225,11 +225,14 @@ export default function Page() {
 
       <div className="flex flex-1 pt-[61px] overflow-hidden">
         {/* Sidebar */}
-        <aside className="w-[280px] bg-white border-r border-outline flex flex-col p-8 shrink-0 overflow-y-auto custom-scrollbar">
-          <div className="sticky top-0 bg-white pb-6">
-            <h1 className="text-3xl font-black tracking-tighter leading-none mb-2">Decision <span className="italic font-normal text-primary font-serif">Engine</span></h1>
-            <p className="text-on-surface-variant text-[10px] font-medium leading-relaxed uppercase tracking-widest opacity-60">Curation Service v5.0</p>
-          </div>
+        <aside className={`relative shrink-0 bg-white border-r border-outline transition-all duration-300 ease-in-out ${isSidebarCollapsed ? 'w-0' : 'w-[280px]'}`}>
+          
+          <div className="w-full h-full overflow-hidden">
+            <div className={`w-[280px] h-full flex flex-col p-8 overflow-y-auto custom-scrollbar transition-opacity duration-200 ${isSidebarCollapsed ? 'opacity-0 pointer-events-none' : 'opacity-100 delay-100'}`}>
+              <div className="sticky top-0 bg-white pb-6 z-10">
+                <h1 className="text-3xl font-black tracking-tighter leading-none mb-2">Decision <span className="italic font-normal text-primary font-serif">Engine</span></h1>
+                <p className="text-on-surface-variant text-[10px] font-medium leading-relaxed uppercase tracking-widest opacity-60">Curation Service v5.0</p>
+              </div>
           
           <div className="mt-8 space-y-8 flex-1">
             <div>
@@ -287,6 +290,24 @@ export default function Page() {
               <button className="w-full py-2.5 bg-on-surface text-surface rounded-xl text-[10px] font-bold uppercase tracking-widest hover:bg-primary transition-colors">Upgrade Plan</button>
             </div>
           </div>
+          </div>
+          </div>
+
+          {/* Toggle Button */}
+          <button 
+            onClick={() => setIsSidebarCollapsed(!isSidebarCollapsed)}
+            className={`absolute top-[42px] ${isSidebarCollapsed ? '-right-[40px]' : '-right-[15px]'} w-[30px] h-[30px] bg-white border border-outline rounded-full flex items-center justify-center text-secondary hover:text-primary hover:border-outline-variant transition-all duration-300 z-50 group hover:shadow-sm`}
+          >
+            <span className="material-symbols-outlined text-[16px] transition-transform duration-300">
+              menu
+            </span>
+            
+            {/* Tooltip */}
+            <div className="absolute left-full ml-3 px-3 py-2 bg-on-surface text-surface rounded-lg text-[10px] font-bold tracking-widest uppercase whitespace-nowrap opacity-0 pointer-events-none group-hover:opacity-100 transition-opacity flex items-center shadow-lg">
+              <div className="absolute -left-1 w-2 h-2 bg-on-surface rotate-45"></div>
+              <span className="relative z-10">{isSidebarCollapsed ? 'Expand Navigation' : 'Collapse Navigation'}</span>
+            </div>
+          </button>
         </aside>
 
         {/* Content */}
